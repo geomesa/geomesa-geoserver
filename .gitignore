@@ -1,0 +1,11 @@
+*.iws
+*.ipr
+*.iml
+*.idea/
+*.log
+.idea/**
+**/.classpath
+**/.project
+**/.settings
+target
+**/src/main/resources/git.properties

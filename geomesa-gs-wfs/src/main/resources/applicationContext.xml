@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <bean id="binaryViewerOutputFormat" class="org.geomesa.gs.wfs.output.BinaryViewerOutputFormat">
+        <constructor-arg ref="geoServer"/>
+    </bean>
+
+    <bean id="arrowOutputFormat" class="org.geomesa.gs.wfs.output.ArrowOutputFormat">
+        <constructor-arg ref="geoServer"/>
+    </bean>
+
+    <bean id="binaryViewerWpsOutput" class="org.geomesa.gs.wps.output.BinaryViewerProcessIO"/>
+
+    <bean id="arrowWpsOutput" class="org.geomesa.gs.wps.output.ArrowProcessIO"/>
+
+</beans>
