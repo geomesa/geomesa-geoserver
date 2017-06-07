@@ -24,11 +24,11 @@ import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.DataStore
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.Version
-import org.locationtech.geomesa.accumulo.iterators.BinSorter
 import org.locationtech.geomesa.filter.function.BinaryOutputEncoder
 import org.locationtech.geomesa.filter.function.BinaryOutputEncoder.{BIN_ATTRIBUTE_INDEX, BinEncodedSft, EncodingOptions, GeometryAttribute}
 import org.locationtech.geomesa.index.api.QueryPlanner
 import org.locationtech.geomesa.index.conf.QueryHints._
+import org.locationtech.geomesa.index.utils.bin.BinSorter
 import org.locationtech.geomesa.utils.geotools.Conversions._
 
 import scala.collection.JavaConversions._
