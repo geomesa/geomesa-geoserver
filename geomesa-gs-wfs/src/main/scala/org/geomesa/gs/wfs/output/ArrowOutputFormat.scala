@@ -18,7 +18,7 @@ import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.locationtech.geomesa.arrow.io.SimpleFeatureArrowFileWriter
-import org.locationtech.geomesa.index.api.QueryPlanner
+import org.locationtech.geomesa.index.planning.QueryPlanner
 import org.locationtech.geomesa.index.conf.QueryHints._
 import org.locationtech.geomesa.utils.geotools.Conversions._
 import org.locationtech.geomesa.utils.io.WithClose
