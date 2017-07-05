@@ -16,6 +16,7 @@
         <module>geomesa-gs-wfs</module>
         <module>geomesa-gs-avro-mimetype</module>
         <module>geomesa-gs-catalog-listener</module>
+        <module>geomesa-gs-styling</module>
     </modules>
 
     <properties>
