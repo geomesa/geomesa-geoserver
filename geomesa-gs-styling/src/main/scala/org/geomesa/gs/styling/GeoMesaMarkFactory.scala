@@ -40,8 +40,6 @@ class GeoMesaMarkFactory extends TTFMarkFactory {
    )
 
   override def getShape(graphics: Graphics2D, symbolUrl: Expression, feature: Feature): Shape = {
-    // gm://$rotation#$iconPath i.e. gm://180.0#ttf://...
-
     symbolUrl.evaluate(feature, classOf[(jString, jDouble)]) match {
       case (icon: jString, rotation: jDouble) =>
         val normRotation: Int = {
@@ -66,7 +64,6 @@ object GeoMesaMarkFactory {
       println(s"Looking up shape for url $url")
       val exp = new LiteralExpressionImpl(url)
       val shape = ttfFactory.getShape(null, exp, null)
-
       shape
     } else {
       null
