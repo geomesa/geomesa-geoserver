@@ -16,6 +16,7 @@
         <module>geomesa-gs-wfs</module>
         <module>geomesa-gs-avro-mimetype</module>
         <module>geomesa-gs-catalog-listener</module>
+        <module>geomesa-gs-styling</module>
     </modules>
 
     <properties>
@@ -26,7 +27,7 @@
         <scala.version>2.11.7</scala.version>
         <scala.abi.version>2.11</scala.abi.version>
 
-        <gs.version>2.9.2</gs.version>
+        <gs.version>2.9.1</gs.version>
         <gt.version>15.1</gt.version>
         <jts.version>1.13</jts.version>
         <guava.version>17.0</guava.version>
