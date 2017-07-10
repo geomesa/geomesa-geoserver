@@ -12,6 +12,7 @@ import java.awt.{Graphics2D, Shape}
 import java.lang.{Double => jDouble, String => jString}
 
 import com.github.benmanes.caffeine.cache.{CacheLoader, Caffeine}
+import com.typesafe.scalalogging.LazyLogging
 import org.geotools.filter.LiteralExpressionImpl
 import org.geotools.geometry.jts.TransformedShape
 import org.geotools.renderer.style._
@@ -56,12 +57,12 @@ class GeoMesaMarkFactory extends TTFMarkFactory {
   }
 }
 
-object GeoMesaMarkFactory {
+object GeoMesaMarkFactory extends LazyLogging {
   val ttfFactory = new TTFMarkFactory
 
   def lookupShape(url: String): Shape = {
     if (url.startsWith("ttf://")) {
-      println(s"Looking up shape for url $url")
+      logger.debug(s"Looking up shape for url $url")
       val exp = new LiteralExpressionImpl(url)
       val shape = ttfFactory.getShape(null, exp, null)
       shape
