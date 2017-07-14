@@ -12,7 +12,7 @@ import org.geotools.filter.FunctionExpressionImpl
 import org.geotools.filter.capability.FunctionNameImpl
 import org.geotools.filter.capability.FunctionNameImpl._
 
-import java.lang.{Float => jFloat, Object => jObject, String => jString}
+import java.lang.{Float => jFloat, Object => jObject}
 
 class GeoMesaFastMark extends FunctionExpressionImpl(
   new FunctionNameImpl("geomesaFastMark",
@@ -21,7 +21,7 @@ class GeoMesaFastMark extends FunctionExpressionImpl(
   parameter("rotation", classOf[Double]))) {
 
   override def evaluate(o: jObject): AnyRef = {
-    val icon = getExpression(0).evaluate(o).asInstanceOf[jString]
+    val icon = getExpression(0).evaluate(o).asInstanceOf[String]
     val rotation: jFloat = Option(org.geotools.util.Converters.convert(getExpression(1).evaluate(o), classOf[jFloat])).getOrElse(Float.box(0))
     (icon, rotation)
   }
