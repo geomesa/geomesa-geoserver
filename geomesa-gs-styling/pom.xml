@@ -40,5 +40,4 @@
             <artifactId>scala-logging_2.11</artifactId>
         </dependency>
     </dependencies>
-
 </project>

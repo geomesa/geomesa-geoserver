@@ -9,7 +9,7 @@
 package org.geomesa.gs.styling
 
 import java.awt.{Graphics2D, Shape}
-import java.lang.{Double => jDouble, String => jString}
+import java.lang.{Float => jFloat, String => jString}
 
 import com.github.benmanes.caffeine.cache.{CacheLoader, Caffeine}
 import com.typesafe.scalalogging.LazyLogging
@@ -41,8 +41,8 @@ class GeoMesaMarkFactory extends TTFMarkFactory {
    )
 
   override def getShape(graphics: Graphics2D, symbolUrl: Expression, feature: Feature): Shape = {
-    symbolUrl.evaluate(feature, classOf[(jString, jDouble)]) match {
-      case (icon: jString, rotation: jDouble) =>
+    symbolUrl.evaluate(feature, classOf[(jString, jFloat)]) match {
+      case (icon: jString, rotation: jFloat) =>
         val normRotation: Int = {
           if (rotation < 0) {
             (rotation + 360).toInt
