@@ -22,16 +22,20 @@ class GeoMesaLabelParser extends FunctionExpressionImpl(
 
   override def evaluate(o: jObject): AnyRef = {
     val property = getExpression(0).evaluate(o).asInstanceOf[String]
-    val numberFormat: String = Option(getExpression(1).evaluate(o).asInstanceOf[String]).getOrElse("%.4f")
-    try {
-      val prop = jDouble.parseDouble(property)
-      if (numberFormat.matches("%.\\d+f")) {
-        prop.formatted(numberFormat).toString
-      } else {
-        prop.toString
+    if (property == null || property.isEmpty) {
+      ""
+    } else {
+      val numberFormat: String = Option(getExpression(1).evaluate(o).asInstanceOf[String]).getOrElse("%.4f")
+      try {
+        val prop = jDouble.parseDouble(property)
+        if (numberFormat.matches("%.\\d+f")) {
+          prop.formatted(numberFormat).toString
+        } else {
+          prop.toString
+        }
+      } catch {
+        case _: NumberFormatException => property
       }
-    } catch {
-      case _: NumberFormatException => property
     }
   }
 }
