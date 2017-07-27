@@ -17,25 +17,41 @@ import org.geotools.filter.capability.FunctionNameImpl._
 class GeoMesaLabelParser extends FunctionExpressionImpl(
   new FunctionNameImpl("geomesaParseLabel",
     parameter("geomesaParseLabel", classOf[String]),
-    parameter("property", classOf[String]),
-    parameter("numberFormat", classOf[String]))) {
+    parameter("numberFormat", classOf[String]),
+    parameter("property1", classOf[String]),
+    parameter("property2", classOf[String]),
+    parameter("property3", classOf[String]))) {
 
-  override def evaluate(o: jObject): AnyRef = {
-    val property = getExpression(0).evaluate(o)
-    if (property == null) {
+  val reg = ".+\\w.+"
+
+  def formatProp (prop: String, format: String): String = {
+    if (prop == "") {
       ""
     } else {
-      val numberFormat: String = Option(getExpression(1).evaluate(o).asInstanceOf[String]).getOrElse("%.4f")
-      try {
-        val prop = jDouble.parseDouble(property.toString)
-        if (numberFormat.matches("%.\\d+f")) {
-          prop.formatted(numberFormat).toString
-        } else {
-          prop.toString
+      if (prop.matches(reg)) { prop } else {
+        try {
+          jDouble.parseDouble(prop).formatted(format)
+        } catch {
+          case _: NumberFormatException => prop
         }
-      } catch {
-        case _: NumberFormatException => property
       }
+    }
+  }
+
+  override def evaluate(o: jObject): AnyRef = {
+    val exp1 = getExpression(1).evaluate(o)
+    val exp2 = getExpression(2).evaluate(o)
+    val exp3 = getExpression(3).evaluate(o)
+
+    val property1 = if (exp1 == null) { "" } else exp1.toString
+    val property2 = if (exp2 == null) { "" } else exp2.toString
+    val property3 = if (exp3 == null) { "" } else exp3.toString
+
+    if (property1 + property2 + property3 == "") {
+      ""
+    } else {
+      val nf: String = getExpression(0).evaluate(null).asInstanceOf[String]
+      formatProp(property1, nf) + "\n" + formatProp(property2, nf) + "\n" + formatProp(property3, nf)
     }
   }
 }
