@@ -19,26 +19,46 @@ To use this function, replace the "WellKnownName" for your mark with the icon pa
 
 ## geomesaLabelParser
 
-The geomesaLabelParser function handles lookup, parsing and formatting of labels. The first is the format for the values 
-if they are parsable as a Double. Use standard Java number format syntax. The other three parameters are the values to 
+Names: geomesaParseLabel_1, geomesaParseLabel_2, geomesaParseLabel_3, geomesaParseLabel_4
+
+The geomesaLabelParser functions handle lookup, parsing and formatting of labels. The first is the format for the values 
+if they are parsable as a Double. Use standard Java number format syntax. The other one to four parameters are the value(s) to 
 parse. This can be any function or literal that will provide a value for the label. If the value of the label is not 
 parsable as a Double the value is passed through as a string. This function always returns a string.
 
 ```
 <Label>
-    <ogc:Function name="geomesaParseLabel">
+    <ogc:Function name="geomesaParseLabel_1">
         <ogc:Literal>%.0f</ogc:Literal>
         <ogc:Function name="property">labelAttr1</ogc:Function>
-        <ogc:Literal></ogc:Literal>
-        <ogc:Literal></ogc:Literal>
     </ogc:Function>
     ...
 ```
 
 ```
 <Label>
-    <ogc:Function name="geomesaParseLabel">
-        <ogc:Literal>%.4f</ogc:Literal>
+    <ogc:Function name="geomesaParseLabel_2">
+        <ogc:Literal>%.0f</ogc:Literal>
+        <ogc:Function name="property">
+            <ogc:Function name="env">
+                <ogc:Literal>label1</ogc:Literal>
+                <ogc:Literal>name</ogc:Literal>
+            </ogc:Function>
+        </ogc:Function>
+        <ogc:Function name="property">
+            <ogc:Function name="env">
+                <ogc:Literal>label2</ogc:Literal>
+                <ogc:Literal>location</ogc:Literal>
+            </ogc:Function>
+        </ogc:Function>
+    </ogc:Function>
+    ...
+```
+
+```
+<Label>
+    <ogc:Function name="geomesaParseLabel_3">
+        <ogc:Literal>%.0f</ogc:Literal>
         <ogc:Function name="property">
             <ogc:Function name="env">
                 <ogc:Literal>label1</ogc:Literal>
@@ -57,6 +77,33 @@ parsable as a Double the value is passed through as a string. This function alwa
                 <ogc:Literal>age</ogc:Literal>
             </ogc:Function>
         </ogc:Function>
+    </ogc:Function>
+    ...
+```
+
+```
+<Label>
+    <ogc:Function name="geomesaParseLabel_4">
+        <ogc:Literal>%.0f</ogc:Literal>
+        <ogc:Function name="property">
+            <ogc:Function name="env">
+                <ogc:Literal>label1</ogc:Literal>
+                <ogc:Literal>name</ogc:Literal>
+            </ogc:Function>
+        </ogc:Function>
+        <ogc:Function name="property">
+            <ogc:Function name="env">
+                <ogc:Literal>label2</ogc:Literal>
+                <ogc:Literal>location</ogc:Literal>
+            </ogc:Function>
+        </ogc:Function>
+        <ogc:Function name="property">
+            <ogc:Function name="env">
+                <ogc:Literal>label3</ogc:Literal>
+                <ogc:Literal>age</ogc:Literal>
+            </ogc:Function>
+        </ogc:Function>
+        <ogc:Literal></ogc:Literal>
     </ogc:Function>
     ...
 ```

@@ -1,2 +1,5 @@
 org.geomesa.gs.styling.filter.GeoMesaFastMark
-org.geomesa.gs.styling.filter.GeoMesaLabelParser
+org.geomesa.gs.styling.filter.GeoMesaLabelParser1
+org.geomesa.gs.styling.filter.GeoMesaLabelParser2
+org.geomesa.gs.styling.filter.GeoMesaLabelParser3
+org.geomesa.gs.styling.filter.GeoMesaLabelParser4
