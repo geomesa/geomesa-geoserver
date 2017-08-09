@@ -44,7 +44,7 @@ class GeoMesaLabelParser2 extends FunctionExpressionImpl(
     val expr1 = getExpression(1).evaluate(o)
     val expr2 = getExpression(2).evaluate(o)
     val nf: String = getExpression(0).evaluate(null).asInstanceOf[String]
-    formatProp(expr1, nf) + "\n" + formatProp(expr2, nf) + "\n" + formatProp(expr3, nf)
+    formatProp(expr1, nf) + "\n" + formatProp(expr2, nf)
   }
 }
 
