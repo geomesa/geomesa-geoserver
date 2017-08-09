@@ -101,7 +101,8 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
         val iter = fc.asInstanceOf[SimpleFeatureCollection].features()
 
         // this check needs to be done *after* getting the feature iterator so that the return sft will be set
-        val aggregated = fc.getSchema == BinEncodedSft
+        val schema = fc.asInstanceOf[SimpleFeatureCollection].getSchema
+        val aggregated = schema == BinEncodedSft
         if (aggregated) {
           // for accumulo, encodings have already been computed in the tservers
           val aggregates = iter.map(_.getAttribute(BIN_ATTRIBUTE_INDEX).asInstanceOf[Array[Byte]])
@@ -179,10 +180,9 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
         } else {
           logger.warn(s"Server side bin aggregation is not enabled for feature collection '${fc.getClass}'")
           // for non-accumulo fs we do the encoding here
-          val sfc = fc.asInstanceOf[SimpleFeatureCollection]
-          val geomAttribute = geom.getOrElse(sfc.getSchema.getGeometryDescriptor.getLocalName)
+          val geomAttribute = geom.getOrElse(schema.getGeometryDescriptor.getLocalName)
           val geomOption = Some(GeometryAttribute(geomAttribute, axisOrder))
-          BinaryOutputEncoder.encodeFeatureCollection(sfc, bos, EncodingOptions(geomOption, dtg, Some(trackId), label), sort)
+          BinaryOutputEncoder.encodeFeatureIterator(iter, schema, bos, EncodingOptions(geomOption, dtg, Some(trackId), label), sort)
         }
 
         iter.close()
