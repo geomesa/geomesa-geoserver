@@ -94,7 +94,7 @@ object GeoMesaLabelParser {
       // expr could be an Int/Float/Double
       val prop = expr.toString
       // If there is a letter in the prop value, we can't parse so short circuit
-      if (prop.matches(".+\\w.+") || prop == "") {
+      if (prop.matches(".*[a-zA-Z].*") || prop == "") {
         prop
       } else {
         try {
