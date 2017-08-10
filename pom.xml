@@ -49,9 +49,9 @@
     </properties>
 
     <scm>
-        <connection>scm:git:git@github.com:ccri/geomesa-ext.git</connection>
-        <developerConnection>scm:git:git@github.com:ccri/geomesa-ext.git</developerConnection>
-        <url>https://github.com/ccri/geomesa-ext</url>
+        <connection>scm:git:git@github.com:geomesa/geomesa-geoserver.git</connection>
+        <developerConnection>scm:git:git@github.com:geomesa/geomesa-geoserver.git</developerConnection>
+        <url>https://github.com/geomesa/geomesa-geoserver</url>
         <tag>HEAD</tag>
     </scm>
 
