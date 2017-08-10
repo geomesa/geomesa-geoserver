@@ -24,11 +24,12 @@ import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.DataStore
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.Version
-import org.locationtech.geomesa.filter.function.BinaryOutputEncoder
-import org.locationtech.geomesa.filter.function.BinaryOutputEncoder.{BIN_ATTRIBUTE_INDEX, BinEncodedSft, EncodingOptions, GeometryAttribute}
-import org.locationtech.geomesa.index.planning.QueryPlanner
 import org.locationtech.geomesa.index.conf.QueryHints._
+import org.locationtech.geomesa.index.planning.QueryPlanner
 import org.locationtech.geomesa.index.utils.bin.BinSorter
+import org.locationtech.geomesa.utils.bin.BinaryOutputEncoder.EncodingOptions
+import org.locationtech.geomesa.utils.bin.{AxisOrder, BinaryOutputEncoder}
+import org.locationtech.geomesa.utils.collection.SelfClosingIterator
 import org.locationtech.geomesa.utils.geotools.Conversions._
 
 import scala.collection.JavaConversions._
@@ -43,7 +44,7 @@ import scala.collection.JavaConversions._
  * Optional flags:
  * format_options=trackId:<track_attribute_name>;geom:<geometry_attribute_name>;dtg:<dtg_attribute_name>;label:<label_attribute_name>
  *
- * @param geoServer
+ * @param geoServer handle to geoserver
  */
 class BinaryViewerOutputFormat(geoServer: GeoServer)
     extends WFSGetFeatureOutputFormat(geoServer, Set("bin", BinaryViewerOutputFormat.MIME_TYPE)) with LazyLogging {
@@ -54,7 +55,7 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
 
   override def getPreferredDisposition(value: AnyRef, operation: Operation) = Response.DISPOSITION_INLINE
 
-  override def getAttachmentFileName(value: AnyRef, operation: Operation) = {
+  override def getAttachmentFileName(value: AnyRef, operation: Operation): String = {
     val gfr = GetFeatureRequest.adapt(operation.getParameters()(0))
     val name = Option(gfr.getHandle).getOrElse(gfr.getQueries.get(0).getTypeNames.get(0).getLocalPart)
     // if they have requested a label, then it will be 24 byte encoding (assuming the field exists...)
@@ -102,10 +103,10 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
 
         // this check needs to be done *after* getting the feature iterator so that the return sft will be set
         val schema = fc.asInstanceOf[SimpleFeatureCollection].getSchema
-        val aggregated = schema == BinEncodedSft
+        val aggregated = schema == BinaryOutputEncoder.BinEncodedSft
         if (aggregated) {
           // for accumulo, encodings have already been computed in the tservers
-          val aggregates = iter.map(_.getAttribute(BIN_ATTRIBUTE_INDEX).asInstanceOf[Array[Byte]])
+          val aggregates = iter.map(_.getAttribute(BinaryOutputEncoder.BIN_ATTRIBUTE_INDEX).asInstanceOf[Array[Byte]])
 
           if (sort) {
             // we do some asynchronous pre-merging while we are waiting for all the data to come in
@@ -116,7 +117,7 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
             // access to this is manually synchronized so we can pull off 2 items at once
             val mergeQueue = collection.mutable.PriorityQueue.empty[Array[Byte]](new Ordering[Array[Byte]] {
               // shorter first
-              override def compare(x: Array[Byte], y: Array[Byte]) = y.length.compareTo(x.length)
+              override def compare(x: Array[Byte], y: Array[Byte]): Int = y.length.compareTo(x.length)
             })
             // holds buffers we don't want to consider anymore due to there size - also manually synchronized
             val doneMergeQueue = collection.mutable.ArrayBuffer.empty[Array[Byte]]
@@ -180,9 +181,14 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
         } else {
           logger.warn(s"Server side bin aggregation is not enabled for feature collection '${fc.getClass}'")
           // for non-accumulo fs we do the encoding here
-          val geomAttribute = geom.getOrElse(schema.getGeometryDescriptor.getLocalName)
-          val geomOption = Some(GeometryAttribute(geomAttribute, axisOrder))
-          BinaryOutputEncoder.encodeFeatureIterator(iter, schema, bos, EncodingOptions(geomOption, dtg, Some(trackId), label), sort)
+          val sfc = fc.asInstanceOf[SimpleFeatureCollection]
+          val geomIndex = geom.map(schema.indexOf).filter(_ != -1)
+          val dtgIndex = dtg.map(schema.indexOf).filter(_ != -1)
+          val trackIndex = Some(trackId).map(schema.indexOf).filter(_ != -1)
+          val labelIndex = label.map(schema.indexOf).filter(_ != -1)
+          val options = EncodingOptions(geomIndex, dtgIndex, trackIndex, labelIndex, Some(axisOrder))
+          val encoder = BinaryOutputEncoder(schema, options)
+          encoder.encode(SelfClosingIterator(sfc.features()), bos, sort)
         }
 
         iter.close()
@@ -215,9 +221,6 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
 }
 
 object BinaryViewerOutputFormat extends LazyLogging {
-
-  import org.locationtech.geomesa.filter.function.AxisOrder
-  import org.locationtech.geomesa.filter.function.AxisOrder.{LatLon, LonLat}
 
   val MIME_TYPE = "application/vnd.binary-viewer"
   val FILE_EXTENSION = "bin"
@@ -259,14 +262,14 @@ object BinaryViewerOutputFormat extends LazyLogging {
       // SRS format associated with WFS 1.1.0 and 2.0.0 - lat is first
       case Some(srs) if srs.toLowerCase.startsWith(srsVersionOnePlusPrefix) => AxisOrder.LatLon
       // SRS format associated with WFS 1.0.0 - lon is first
-      case Some(srs) if srs.toLowerCase.startsWith(srsVersionOnePrefix) => LonLat
+      case Some(srs) if srs.toLowerCase.startsWith(srsVersionOnePrefix) => AxisOrder.LonLat
       // non-standard SRS format - geoserver puts lon first
-      case Some(srs) if srs.toLowerCase.startsWith(srsNonStandardPrefix) => LonLat
+      case Some(srs) if srs.toLowerCase.startsWith(srsNonStandardPrefix) => AxisOrder.LonLat
       case Some(srs) =>
         val valid = s"${srsVersionOnePrefix}xxxx, ${srsVersionOnePlusPrefix}xxxx, ${srsNonStandardPrefix}xxxx"
         throw new IllegalArgumentException(s"Invalid SRS format: '$srs'. Valid options are: $valid")
       // if no explicit SRS: wfs 1.0.0 stores x = lon y = lat, anything greater stores x = lat y = lon
-      case None => if (getFeature.getService.getVersion.compareTo(wfsVersion1) > 0) LatLon else LonLat
+      case None => if (getFeature.getService.getVersion.compareTo(wfsVersion1) > 0) AxisOrder.LatLon else AxisOrder.LonLat
     }
 
   def getTypeName(getFeature: Operation): Option[QName] = {
