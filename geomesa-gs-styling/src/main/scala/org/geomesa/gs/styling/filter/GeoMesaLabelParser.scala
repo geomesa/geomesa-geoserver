@@ -16,7 +16,7 @@ import org.geotools.filter.capability.FunctionNameImpl._
 
 class GeoMesaLabelParser1 extends FunctionExpressionImpl(
   new FunctionNameImpl("geomesaParseLabel_1",
-    parameter("geomesaParseLabel", classOf[String]),
+    parameter("geomesaParseLabel_1", classOf[String]),
     parameter("numberFormat", classOf[String]),
     parameter("property1", classOf[String]))) {
 
@@ -33,7 +33,7 @@ class GeoMesaLabelParser1 extends FunctionExpressionImpl(
 
 class GeoMesaLabelParser2 extends FunctionExpressionImpl(
   new FunctionNameImpl("geomesaParseLabel_2",
-    parameter("geomesaParseLabel", classOf[String]),
+    parameter("geomesaParseLabel_2", classOf[String]),
     parameter("numberFormat", classOf[String]),
     parameter("property1", classOf[String]),
     parameter("property2", classOf[String]))) {
@@ -50,7 +50,7 @@ class GeoMesaLabelParser2 extends FunctionExpressionImpl(
 
 class GeoMesaLabelParser3 extends FunctionExpressionImpl(
   new FunctionNameImpl("geomesaParseLabel_3",
-    parameter("geomesaParseLabel", classOf[String]),
+    parameter("geomesaParseLabel_3", classOf[String]),
     parameter("numberFormat", classOf[String]),
     parameter("property1", classOf[String]),
     parameter("property2", classOf[String]),
@@ -69,7 +69,7 @@ class GeoMesaLabelParser3 extends FunctionExpressionImpl(
 
 class GeoMesaLabelParser4 extends FunctionExpressionImpl(
   new FunctionNameImpl("geomesaParseLabel_4",
-    parameter("geomesaParseLabel", classOf[String]),
+    parameter("geomesaParseLabel_4", classOf[String]),
     parameter("numberFormat", classOf[String]),
     parameter("property1", classOf[String]),
     parameter("property2", classOf[String]),
