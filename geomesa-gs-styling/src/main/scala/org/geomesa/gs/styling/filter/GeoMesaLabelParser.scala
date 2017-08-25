@@ -9,6 +9,7 @@
 package org.geomesa.gs.styling.filter
 
 import java.lang.{Double => jDouble, Object => jObject}
+import java.util.regex.Pattern
 
 import org.geotools.filter.FunctionExpressionImpl
 import org.geotools.filter.capability.FunctionNameImpl
@@ -87,14 +88,15 @@ class GeoMesaLabelParser4 extends FunctionExpressionImpl(
 }
 
 object GeoMesaLabelParser {
+  val p = Pattern.compile("\\d*\\.\\d*")
   def formatProp (expr: Any, format: String): String = {
     if (expr == null) {
       ""
     } else {
       // expr could be an Int/Float/Double
       val prop = expr.toString
-      // If there is a letter in the prop value, we can't parse so short circuit
-      if (prop.matches(".*[a-zA-Z].*") || prop == "") {
+      // Only attempt parse if there is a decimal point
+      if (prop == "" || !p.matcher(prop).matches) {
         prop
       } else {
         try {
