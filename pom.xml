@@ -53,8 +53,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>geomesa-gs-kafka-09</module>
-        <module>geomesa-gs-kafka-10</module>
         <module>geomesa-gs-security</module>
         <module>geomesa-gs-wfs</module>
         <module>geomesa-gs-avro-mimetype</module>

@@ -21,7 +21,6 @@ import org.geoserver.ows.Response
 import org.geoserver.platform.Operation
 import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
-import org.geotools.data.DataStore
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.Version
 import org.locationtech.geomesa.index.conf.QueryHints._
@@ -29,8 +28,7 @@ import org.locationtech.geomesa.index.planning.QueryPlanner
 import org.locationtech.geomesa.index.utils.bin.BinSorter
 import org.locationtech.geomesa.utils.bin.BinaryOutputEncoder.EncodingOptions
 import org.locationtech.geomesa.utils.bin.{AxisOrder, BinaryOutputEncoder}
-import org.locationtech.geomesa.utils.collection.SelfClosingIterator
-import org.locationtech.geomesa.utils.geotools.Conversions._
+import org.locationtech.geomesa.utils.collection.{CloseableIterator, SelfClosingIterator}
 
 import scala.collection.JavaConversions._
 
@@ -51,9 +49,9 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
 
   import BinaryViewerOutputFormat._
 
-  override def getMimeType(value: AnyRef, operation: Operation) = MIME_TYPE
+  override def getMimeType(value: AnyRef, operation: Operation): String = MIME_TYPE
 
-  override def getPreferredDisposition(value: AnyRef, operation: Operation) = Response.DISPOSITION_INLINE
+  override def getPreferredDisposition(value: AnyRef, operation: Operation): String = Response.DISPOSITION_INLINE
 
   override def getAttachmentFileName(value: AnyRef, operation: Operation): String = {
     val gfr = GetFeatureRequest.adapt(operation.getParameters()(0))
@@ -99,7 +97,7 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
 
     try {
       featureCollections.getFeatures.foreach { fc =>
-        val iter = fc.asInstanceOf[SimpleFeatureCollection].features()
+        val iter = CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())
 
         // this check needs to be done *after* getting the feature iterator so that the return sft will be set
         val schema = fc.asInstanceOf[SimpleFeatureCollection].getSchema
@@ -127,7 +125,7 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
             var i = 0
             while (i < numThreads) {
               executor.submit(new Runnable() {
-                override def run() = {
+                override def run(): Unit = {
                   while (keepMerging.get()) {
                     // pull out the 2 smallest items to merge
                     // the final merge has to compare the first item in each buffer
@@ -199,25 +197,6 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
     }
     // none of the implementations in geoserver call 'close' on the output stream
   }
-
-  /**
-   * Try to pull out the default date field from the SimpleFeatureType associated with this request
-   *
-   * @param getFeature
-   * @return
-   */
-  private def getDateField(getFeature: Operation): Option[String] = {
-    import org.locationtech.geomesa.utils.geotools.RichSimpleFeatureType.RichSimpleFeatureType
-    for {
-      tn        <- getTypeName(getFeature)
-      name      =  tn.getLocalPart
-      layer     <- Option(gs.getCatalog.getLayerByName(name))
-      storeId   =  layer.getResource.getStore.getId
-      dataStore =  gs.getCatalog.getDataStore(storeId).getDataStore(null).asInstanceOf[DataStore]
-      schema    <- Option(dataStore.getSchema(name))
-      dtgField  <- schema.getDtgField
-    } yield dtgField
-  }
 }
 
 object BinaryViewerOutputFormat extends LazyLogging {
@@ -253,7 +232,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
    * See http://docs.geoserver.org/2.5.x/en/user/services/wfs/basics.html#axis-ordering for details
    * on how geoserver handles axis order.
    *
-   * @param getFeature
+   * @param getFeature operation
    * @return
    */
   def checkAxisOrder(getFeature: Operation): AxisOrder.AxisOrder =
@@ -291,7 +270,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
   /**
    * Function to pull requested SRS out of a WFS request
    *
-   * @param getFeature
+   * @param getFeature operation
    * @return
    */
   def getSrs(getFeature: Operation): Option[String] =
@@ -301,7 +280,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
   /**
    * Function to pull requested SRS out of WFS 1.0.0/1.1.0 request
    *
-   * @param getFeatureType
+   * @param getFeatureType operation
    * @return
    */
   def getSrs(getFeatureType: GetFeatureTypeV1): Option[String] =
@@ -310,7 +289,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
   /**
    * Function to pull requested SRS out of WFS 2 request
    *
-   * @param getFeatureType
+   * @param getFeatureType operation
    * @return
    */
   def getSrs(getFeatureType: GetFeatureTypeV2): Option[String] =
@@ -318,7 +297,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
 
   /**
    *
-   * @param getFeature
+   * @param getFeature operation
    * @return
    */
   def getFeatureTypeV2(getFeature: Operation): Option[GetFeatureTypeV2] =
@@ -327,7 +306,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
 
   /**
    *
-   * @param getFeature
+   * @param getFeature operation
    * @return
    */
   def getFeatureTypeV1(getFeature: Operation): Option[GetFeatureTypeV1] =
@@ -337,7 +316,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
   /**
    * Pull out query object from request
    *
-   * @param getFeatureType
+   * @param getFeatureType operation
    * @return
    */
   def getQueryType(getFeatureType: GetFeatureTypeV1): Option[QueryTypeV1] =
@@ -348,7 +327,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
   /**
    * Pull out query object from request
    *
-   * @param getFeatureType
+   * @param getFeatureType operation
    * @return
    */
   def getQueryType(getFeatureType: GetFeatureTypeV2): Option[QueryTypeV2] =
