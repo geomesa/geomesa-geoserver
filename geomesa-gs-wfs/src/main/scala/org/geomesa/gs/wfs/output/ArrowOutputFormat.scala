@@ -18,9 +18,9 @@ import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.locationtech.geomesa.arrow.io.SimpleFeatureArrowFileWriter
-import org.locationtech.geomesa.index.planning.QueryPlanner
 import org.locationtech.geomesa.index.conf.QueryHints._
-import org.locationtech.geomesa.utils.geotools.Conversions._
+import org.locationtech.geomesa.index.planning.QueryPlanner
+import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.io.WithClose
 import org.opengis.feature.simple.SimpleFeatureType
 
@@ -68,28 +68,30 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
     try {
       featureCollections.getFeatures.foreach { fc =>
-        val iter = fc.asInstanceOf[SimpleFeatureCollection].features()
-
-        // this check needs to be done *after* getting the feature iterator so that the return sft will be set
-        val aggregated = fc.getSchema == org.locationtech.geomesa.arrow.ArrowEncodedSft
-        if (aggregated) {
-          // for accumulo, encodings have already been computed in the tservers
-          iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
-        } else {
-          logger.warn(s"Server side arrow aggregation is not enabled for feature collection '${fc.getClass}'")
-          // for non-accumulo fs we do the encoding here
-          WithClose(new SimpleFeatureArrowFileWriter(fc.getSchema.asInstanceOf[SimpleFeatureType], bos, Map.empty)) { writer =>
-            var i = 0
-            iter.foreach { sf =>
-              writer.add(sf)
-              i += 1
-              if (i % 10000 == 0) {
-                writer.flush()
+        val iter = CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())
+        try {
+          // this check needs to be done *after* getting the feature iterator so that the return sft will be set
+          val aggregated = fc.getSchema == org.locationtech.geomesa.arrow.ArrowEncodedSft
+          if (aggregated) {
+            // for accumulo, encodings have already been computed in the tservers
+            iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
+          } else {
+            logger.warn(s"Server side arrow aggregation is not enabled for feature collection '${fc.getClass}'")
+            // for non-accumulo fs we do the encoding here
+            WithClose(new SimpleFeatureArrowFileWriter(fc.getSchema.asInstanceOf[SimpleFeatureType], bos, Map.empty)) { writer =>
+              var i = 0
+              iter.foreach { sf =>
+                writer.add(sf)
+                i += 1
+                if (i % 10000 == 0) {
+                  writer.flush()
+                }
               }
             }
           }
+        } finally {
+          iter.close()
         }
-        iter.close()
       }
     } finally {
       QueryPlanner.clearPerThreadQueryHints()

@@ -53,8 +53,6 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>geomesa-gs-kafka-09</module>
-        <module>geomesa-gs-kafka-10</module>
         <module>geomesa-gs-security</module>
         <module>geomesa-gs-wfs</module>
         <module>geomesa-gs-avro-mimetype</module>
@@ -70,8 +68,8 @@
         <scala.version>2.11.7</scala.version>
         <scala.abi.version>2.11</scala.abi.version>
 
-        <gs.version>2.12-SNAPSHOT</gs.version>
-        <gt.version>18-SNAPSHOT</gt.version>
+        <gs.version>2.12-RC1</gs.version>
+        <gt.version>18-RC1</gt.version>
         <jts.version>1.14.0</jts.version>
         <imageio-ext.version>1.1.17</imageio-ext.version>
         <guava.version>17.0</guava.version>
