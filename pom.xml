@@ -60,6 +60,7 @@
         <module>geomesa-gs-avro-mimetype</module>
         <module>geomesa-gs-catalog-listener</module>
         <module>geomesa-gs-styling</module>
+        <module>geomesa-gs-raster</module>
     </modules>
 
     <properties>
@@ -380,7 +381,7 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.wicket</groupId>
-                <artifactId>wicket</artifactId>
+                <artifactId>wicket-core</artifactId>
                 <version>7.1.0</version>
                 <scope>provided</scope>
             </dependency>
