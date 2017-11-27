@@ -78,7 +78,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
           } else {
             logger.warn(s"Server side arrow aggregation is not enabled for feature collection '${fc.getClass}'")
             // for non-accumulo fs we do the encoding here
-            WithClose(new SimpleFeatureArrowFileWriter(fc.getSchema.asInstanceOf[SimpleFeatureType], bos, Map.empty)) { writer =>
+            WithClose(SimpleFeatureArrowFileWriter(fc.getSchema.asInstanceOf[SimpleFeatureType], bos)) { writer =>
               var i = 0
               iter.foreach { sf =>
                 writer.add(sf)
