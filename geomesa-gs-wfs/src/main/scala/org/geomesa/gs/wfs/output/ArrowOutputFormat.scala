@@ -17,10 +17,12 @@ import org.geoserver.platform.Operation
 import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.simple.SimpleFeatureCollection
-import org.locationtech.geomesa.arrow.io.SimpleFeatureArrowFileWriter
-import org.locationtech.geomesa.index.planning.QueryPlanner
+import org.locationtech.geomesa.arrow.ArrowProperties
+import org.locationtech.geomesa.arrow.vector.SimpleFeatureVector.SimpleFeatureEncoding
 import org.locationtech.geomesa.index.conf.QueryHints._
-import org.locationtech.geomesa.utils.geotools.Conversions._
+import org.locationtech.geomesa.index.planning.QueryPlanner
+import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVisitor
+import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.io.WithClose
 import org.opengis.feature.simple.SimpleFeatureType
 
@@ -31,15 +33,14 @@ import scala.collection.JavaConversions._
   * To trigger, use outputFormat=application/vnd.arrow in your wfs request
   *
   * Optional flags:
-  *   format_options=encode:<field_to_encode>,<field_to_encode>
+  *   format_options=includeFids:<Boolean>;dictionaryFields:<field_to_encode>,<field_to_encode>;
+  *     useCachedDictionaries:<Boolean>;sortField:<sort_field>;sortReverse:<Boolean>;
+  *     batchSize:<Integer>;doublePass:<Boolean>
   *
   * @param geoServer geoserver
   */
 class ArrowOutputFormat(geoServer: GeoServer)
     extends WFSGetFeatureOutputFormat(geoServer, Set("arrow", ArrowOutputFormat.MimeType)) with LazyLogging {
-
-  import ArrowOutputFormat.{EncodeField, FileExtension}
-  import org.locationtech.geomesa.arrow.allocator
 
   override def getMimeType(value: AnyRef, operation: Operation): String = ArrowOutputFormat.MimeType
 
@@ -48,7 +49,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
   override def getAttachmentFileName(value: AnyRef, operation: Operation): String = {
     val gfr = GetFeatureRequest.adapt(operation.getParameters()(0))
     val name = Option(gfr.getHandle).getOrElse(gfr.getQueries.get(0).getTypeNames.get(0).getLocalPart)
-    s"$name.$FileExtension"
+    s"$name.${ArrowOutputFormat.FileExtension}"
   }
 
   override def write(featureCollections: FeatureCollectionResponse,
@@ -57,45 +58,77 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
     // format_options flags for customizing the request
     val request = GetFeatureRequest.adapt(getFeature.getParameters()(0))
-    val encode  = Option(request.getFormatOptions.get(EncodeField).asInstanceOf[String]).getOrElse("")
 
-    val bos = new BufferedOutputStream(output)
+    val hints: Map[AnyRef, AnyRef] = {
+      import ArrowOutputFormat.Fields
+
+      val builder = Map.newBuilder[AnyRef, AnyRef]
+      builder += ARROW_ENCODE -> Boolean.box(true)
+
+      val options = request.getFormatOptions.asInstanceOf[java.util.Map[String, String]]
+      Option(options.get(Fields.IncludeFids)).foreach { option =>
+        builder += ARROW_INCLUDE_FID -> java.lang.Boolean.valueOf(option)
+      }
+      Option(options.get(Fields.DictionaryFields)).foreach { option =>
+        builder += ARROW_DICTIONARY_FIELDS -> option
+      }
+      Option(options.get(Fields.UseCachedDictionaries)).foreach { option =>
+        builder += ARROW_DICTIONARY_CACHED -> java.lang.Boolean.valueOf(option)
+      }
+      Option(options.get(Fields.SortField)).foreach { option =>
+        builder += ARROW_SORT_FIELD -> option
+      }
+      Option(options.get(Fields.SortReverse)).foreach { option =>
+        builder += ARROW_SORT_REVERSE -> java.lang.Boolean.valueOf(option)
+      }
+      Option(options.get(Fields.BatchSize)).foreach { option =>
+        builder += ARROW_BATCH_SIZE -> java.lang.Integer.valueOf(option)
+      }
+      Option(options.get(Fields.DoublePass)).foreach { option =>
+        builder += ARROW_DOUBLE_PASS -> java.lang.Boolean.valueOf(option)
+      }
+
+      builder.result()
+    }
 
     // set hints into thread local state - this prevents any wrapping feature collections from messing with
     // the aggregation
-    val hints = Map[AnyRef, AnyRef](ARROW_ENCODE -> Boolean.box(true), ARROW_DICTIONARY_FIELDS -> encode)
     QueryPlanner.setPerThreadQueryHints(hints)
 
     try {
-      featureCollections.getFeatures.foreach { fc =>
-        val iter = fc.asInstanceOf[SimpleFeatureCollection].features()
+      WithClose(new BufferedOutputStream(output)) { bos =>
+        featureCollections.getFeatures.foreach { fc =>
+          WithClose(CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())) { iter =>
+            // this check needs to be done *after* getting the feature iterator so that the return sft will be set
+            val aggregated = fc.getSchema == org.locationtech.geomesa.arrow.ArrowEncodedSft
+            if (aggregated) {
+              // with distributed processing, encodings have already been computed in the servers
+              iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write(_))
+            } else {
+              // for non-encoded fs we do the encoding here
+              logger.warn(s"Server side arrow aggregation is not enabled for feature collection '${fc.getClass}'")
 
-        // this check needs to be done *after* getting the feature iterator so that the return sft will be set
-        val aggregated = fc.getSchema == org.locationtech.geomesa.arrow.ArrowEncodedSft
-        if (aggregated) {
-          // for accumulo, encodings have already been computed in the tservers
-          iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
-        } else {
-          logger.warn(s"Server side arrow aggregation is not enabled for feature collection '${fc.getClass}'")
-          // for non-accumulo fs we do the encoding here
-          WithClose(SimpleFeatureArrowFileWriter(fc.getSchema.asInstanceOf[SimpleFeatureType], bos)) { writer =>
-            var i = 0
-            iter.foreach { sf =>
-              writer.add(sf)
-              i += 1
-              if (i % 10000 == 0) {
-                writer.flush()
-              }
+              val encoding = SimpleFeatureEncoding.min(hints.get(ARROW_INCLUDE_FID).forall(_.asInstanceOf[Boolean]))
+              val dictionaries = hints.get(ARROW_DICTIONARY_FIELDS).map(_.asInstanceOf[String].split(",").toSeq).getOrElse(Seq.empty)
+              val cacheDictionaries = hints.get(ARROW_DICTIONARY_CACHED).asInstanceOf[Option[Boolean]]
+              val sortField = hints.get(ARROW_SORT_FIELD).asInstanceOf[Option[String]]
+              val sortReverse = hints.get(ARROW_SORT_REVERSE).asInstanceOf[Option[Boolean]]
+              val batchSize = hints.get(ARROW_BATCH_SIZE).asInstanceOf[Option[Int]].getOrElse(ArrowProperties.BatchSize.get.toInt)
+              val doublePass = hints.get(ARROW_DOUBLE_PASS).asInstanceOf[Option[Boolean]].getOrElse(false)
+
+              val visitor = new ArrowVisitor(fc.getSchema.asInstanceOf[SimpleFeatureType], encoding, dictionaries,
+                cacheDictionaries, sortField, sortReverse, batchSize, doublePass)
+
+              iter.foreach(visitor.visit)
+
+              visitor.getResult().results.foreach(bos.write(_))
             }
           }
         }
-        iter.close()
       }
     } finally {
       QueryPlanner.clearPerThreadQueryHints()
     }
-    // none of the implementations in geoserver call 'close' on the output stream
-    // our writer will close the underlying stream though...
   }
 }
 
@@ -103,5 +136,15 @@ object ArrowOutputFormat extends LazyLogging {
 
   val MimeType      = "application/vnd.arrow"
   val FileExtension = "arrow"
-  val EncodeField   = "encode"
+
+  object Fields {
+    // note: format option keys are always upper-cased by geoserver
+    val IncludeFids           = "INCLUDEFIDS"
+    val DictionaryFields      = "DICTIONARYFIELDS"
+    val UseCachedDictionaries = "USECACHEDDICTIONARIES"
+    val SortField             = "SORTFIELD"
+    val SortReverse           = "SORTREVERSE"
+    val BatchSize             = "BATCHSIZE"
+    val DoublePass            = "DOUBLEPASS"
+  }
 }
