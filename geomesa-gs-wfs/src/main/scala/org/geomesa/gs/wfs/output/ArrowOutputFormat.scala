@@ -25,6 +25,7 @@ import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVi
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.io.WithClose
 import org.opengis.feature.simple.SimpleFeatureType
+import org.opengis.filter.sort.SortOrder
 
 import scala.collection.JavaConversions._
 
@@ -97,7 +98,10 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
     try {
       WithClose(new BufferedOutputStream(output)) { bos =>
-        featureCollections.getFeatures.foreach { fc =>
+        import org.locationtech.geomesa.utils.conversions.ScalaImplicits.RichTraversableOnce
+
+        import scala.collection.JavaConverters._
+        featureCollections.getFeatures.asScala.foreachIndex { case (fc, i) =>
           WithClose(CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())) { iter =>
             // this check needs to be done *after* getting the feature iterator so that the return sft will be set
             val aggregated = fc.getSchema == org.locationtech.geomesa.arrow.ArrowEncodedSft
@@ -116,8 +120,17 @@ class ArrowOutputFormat(geoServer: GeoServer)
               val batchSize = hints.get(ARROW_BATCH_SIZE).asInstanceOf[Option[Int]].getOrElse(ArrowProperties.BatchSize.get.toInt)
               val doublePass = hints.get(ARROW_DOUBLE_PASS).asInstanceOf[Option[Boolean]].getOrElse(false)
 
+              val preSorted = for (field <- sortField; reverse <- sortReverse.orElse(Some(false))) yield {
+                request.getQueries.get(i).getSortBy.toSeq match {
+                  case Seq(sort) =>
+                    Option(sort.getPropertyName).exists(_.getPropertyName == field) &&
+                        (sort.getSortOrder == SortOrder.DESCENDING) == reverse
+                  case _ => false
+                }
+              }
+
               val visitor = new ArrowVisitor(fc.getSchema.asInstanceOf[SimpleFeatureType], encoding, dictionaries,
-                cacheDictionaries, sortField, sortReverse, batchSize, doublePass)
+                cacheDictionaries, sortField, sortReverse, preSorted.getOrElse(false), batchSize, doublePass)
 
               iter.foreach(visitor.visit)
 
