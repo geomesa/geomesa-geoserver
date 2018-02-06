@@ -176,7 +176,7 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
             }
           } else {
             // no sort, just write directly to the output
-            aggregates.foreach(bos.write)
+            aggregates.foreach(bos.write(_))
           }
         } else {
           logger.warn(s"Server side bin aggregation is not enabled for feature collection '${fc.getClass}'")
@@ -282,7 +282,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
         .map(_.getTypeName.toList)
         .getOrElse(Seq.empty)
     val typeNames = typeNamesV2 ++ typeNamesV1
-    if (typeNames.size > 1) {
+    if (typeNames.lengthCompare(1) > 0) {
       logger.warn(s"Multiple TypeNames detected in binary format request (using first): $typeNames")
     }
     typeNames.headOption.map(_.asInstanceOf[QName])
