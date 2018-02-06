@@ -53,11 +53,12 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>geomesa-gs-security</module>
-        <module>geomesa-gs-wfs</module>
         <module>geomesa-gs-avro-mimetype</module>
         <module>geomesa-gs-catalog-listener</module>
+        <module>geomesa-gs-raster</module>
+        <module>geomesa-gs-security</module>
         <module>geomesa-gs-styling</module>
+        <module>geomesa-gs-wfs</module>
     </modules>
 
     <properties>
@@ -393,7 +394,7 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.wicket</groupId>
-                <artifactId>wicket</artifactId>
+                <artifactId>wicket-core</artifactId>
                 <version>${wicket.version}</version>
                 <scope>provided</scope>
             </dependency>
