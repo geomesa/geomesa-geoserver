@@ -34,7 +34,7 @@ import scala.collection.JavaConversions._
   * To trigger, use outputFormat=application/vnd.arrow in your wfs request
   *
   * Optional flags:
-  *   format_options=includeFids:<Boolean>;dictionaryFields:<field_to_encode>,<field_to_encode>;
+  *   format_options=includeFids:<Boolean>;proxyFids:<Boolean>;dictionaryFields:<field_to_encode>,<field_to_encode>;
   *     useCachedDictionaries:<Boolean>;sortField:<sort_field>;sortReverse:<Boolean>;
   *     batchSize:<Integer>;doublePass:<Boolean>
   *
@@ -69,6 +69,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
       val options = request.getFormatOptions.asInstanceOf[java.util.Map[String, String]]
       Option(options.get(Fields.IncludeFids)).foreach { option =>
         builder += ARROW_INCLUDE_FID -> java.lang.Boolean.valueOf(option)
+      }
+      Option(options.get(Fields.ProxyFids)).foreach { option =>
+        builder += ARROW_PROXY_FID -> java.lang.Boolean.valueOf(option)
       }
       Option(options.get(Fields.DictionaryFields)).foreach { option =>
         builder += ARROW_DICTIONARY_FIELDS -> option
@@ -112,7 +115,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
               // for non-encoded fs we do the encoding here
               logger.warn(s"Server side arrow aggregation is not enabled for feature collection '${fc.getClass}'")
 
-              val encoding = SimpleFeatureEncoding.min(hints.get(ARROW_INCLUDE_FID).forall(_.asInstanceOf[Boolean]))
+              val includeFid = hints.get(ARROW_INCLUDE_FID).forall(_.asInstanceOf[Boolean])
+              val proxyFid = hints.get(ARROW_PROXY_FID).exists(_.asInstanceOf[Boolean])
+              val encoding = SimpleFeatureEncoding.min(includeFid, proxyFid)
               val dictionaries = hints.get(ARROW_DICTIONARY_FIELDS).map(_.asInstanceOf[String].split(",").toSeq).getOrElse(Seq.empty)
               val cacheDictionaries = hints.get(ARROW_DICTIONARY_CACHED).asInstanceOf[Option[Boolean]]
               val sortField = hints.get(ARROW_SORT_FIELD).asInstanceOf[Option[String]]
@@ -153,6 +158,7 @@ object ArrowOutputFormat extends LazyLogging {
   object Fields {
     // note: format option keys are always upper-cased by geoserver
     val IncludeFids           = "INCLUDEFIDS"
+    val ProxyFids             = "PROXYFIDS"
     val DictionaryFields      = "DICTIONARYFIELDS"
     val UseCachedDictionaries = "USECACHEDDICTIONARIES"
     val SortField             = "SORTFIELD"
