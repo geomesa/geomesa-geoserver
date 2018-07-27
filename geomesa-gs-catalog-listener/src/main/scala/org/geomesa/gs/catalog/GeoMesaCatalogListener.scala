@@ -10,10 +10,10 @@ package org.geomesa.gs.catalog
 
 import com.typesafe.scalalogging.LazyLogging
 import org.geoserver.catalog.event._
-import org.geoserver.catalog.{Catalog, DataStoreInfo, FeatureTypeInfo, WorkspaceInfo}
+import org.geoserver.catalog._
 import org.geoserver.security.decorators.DecoratingDataStore
 import org.geotools.data.DataStore
-import org.locationtech.geomesa.accumulo.data.AccumuloDataStore
+import org.locationtech.geomesa.index.geotools.GeoMesaDataStore
 import org.locationtech.geomesa.web.core.GeoMesaServletCatalog
 import org.locationtech.geomesa.web.core.GeoMesaServletCatalog.GeoMesaLayerInfo
 import org.springframework.beans.factory.InitializingBean
@@ -38,19 +38,18 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
   def crawlCatalog(): Unit = catalog.getFeatureTypes.foreach(addFeatureTypeInfo)
 
   def addFeatureTypeInfo(featureTypeInfo: FeatureTypeInfo): Unit = {
-    // Handle ADS case
     getStore(featureTypeInfo) match {
-      case ads: AccumuloDataStore =>
+      case gmds: GeoMesaDataStore[_, _, _] =>
 
         val workspace = featureTypeInfo.getStore.getWorkspace.getName
         val layerName = featureTypeInfo.getName
 
         val nativeName = featureTypeInfo.getNativeName
 
-        val sft = ads.getSchema(nativeName)
+        val sft = gmds.getSchema(nativeName)
 
         logger.debug(s"Registering info for layer $layerName with SFT ${sft.getTypeName} with GeoMesa Stats REST API.")
-        GeoMesaServletCatalog.putGeoMesaLayerInfo(workspace, layerName, GeoMesaLayerInfo(ads, sft))
+        GeoMesaServletCatalog.putGeoMesaLayerInfo(workspace, layerName, GeoMesaLayerInfo(gmds, sft))
       case s => logger.debug(s"Encountered non-GeoMesa store: ${Option(s).map(_.getClass.getName).orNull}")
     }
   }
@@ -64,9 +63,8 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
   }
 
   def removeFeatureTypeInfo(featureTypeInfo: FeatureTypeInfo): Unit = {
-    // Handle ADS case
     getStore(featureTypeInfo) match {
-      case ads: AccumuloDataStore =>
+      case gmds: GeoMesaDataStore[_, _, _] =>
 
         val workspace = featureTypeInfo.getStore.getWorkspace.getName
         val layerName = featureTypeInfo.getName
@@ -79,10 +77,11 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
   }
 
   override def handleAddEvent(event: CatalogAddEvent): Unit = {
-    logger.debug(s"GeoMesa Catalog Listener received add event: $event")
+    logger.debug(s"GeoMesa Catalog Listener received add event: $event of type ${event.getSource.getClass}")
     event.getSource match {
       case fti: FeatureTypeInfo => addFeatureTypeInfo(fti)
-      case _ => // not a new layer; no action necessary.
+      case dti: DataStoreInfo => registerLayers(dti)
+      case _ => event.getSource.getClass  // not a new layer; no action necessary.
     }
   }
 
@@ -106,6 +105,27 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
       case wsi: WorkspaceInfo   if event.getPropertyNames.contains("name") => handleWorkspaceUpdate(event)
       case dsi: DataStoreInfo   if event.getPropertyNames.contains("workspace") => handleDataStoreUpdate(event)
       case _ => // not a modification for a FeatureTypeInfo; ignoring
+    }
+  }
+
+  // First pass of auto-registering layers.
+  def registerLayers(dti: DataStoreInfo): Unit = {
+    val ds = dti.getDataStore(null)
+
+    val wsi = dti.getWorkspace
+
+    ds.getNames.foreach { name =>
+      val fs = ds.getFeatureSource(name)
+
+      val builder: CatalogBuilder = new CatalogBuilder(catalog)
+      builder.setStore(dti)
+      val fti = builder.buildFeatureType(name)
+      val li = builder.buildLayer(fti)
+      val bbox = builder.getBoundsFromCRS(fti)
+      fti.setNativeBoundingBox(bbox)
+      fti.setLatLonBoundingBox(bbox)
+      catalog.add(fti)
+      catalog.add(li)
     }
   }
 
