@@ -35,28 +35,27 @@ class DataStoreSecurityProviderImplTest extends Specification with Mockito {
 
   sequential
 
-  val testSFT = SimpleFeatureTypes.createType("test", "name:String,*geom:Point:srid=4326")
+  SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL)
+  val ctx = SecurityContextHolder.createEmptyContext()
+  ctx.setAuthentication(new TestingAuthenticationToken(null, null, "USER"))
+  SecurityContextHolder.setContext(ctx)
   System.setProperty(AuthorizationsProvider.AUTH_PROVIDER_SYS_PROPERTY, classOf[TestAuthorizationsProvider].getName)
+
+  val testSFT = SimpleFeatureTypes.createType("test", "name:String,*geom:Point:srid=4326")
+
+  val features: Seq[SimpleFeature] = Seq(null, "USER", "ADMIN", "USER&ADMIN", "USER|ADMIN").zipWithIndex.map { case (vis, i) =>
+    val sf = new SimpleFeatureImpl(Array.ofDim[AnyRef](2), testSFT, new FeatureIdImpl(i.toString), false)
+    sf.visibility = vis
+    sf
+  }
+
 
   "DataStoreSecurityProviderImpl" should {
 
-    val ctx = SecurityContextHolder.createEmptyContext()
-    ctx.setAuthentication(new TestingAuthenticationToken(null, null, "USER"))
-    SecurityContextHolder.setContext(ctx)
-
-    val features: Seq[SimpleFeature] = Seq(null, "USER", "ADMIN", "USER&ADMIN", "USER|ADMIN").zipWithIndex.map { case (vis, i) =>
-      val sf = new SimpleFeatureImpl(Array.ofDim[AnyRef](2), testSFT, new FeatureIdImpl(i.toString), false)
-      sf.visibility = vis
-      sf
-    }
-
-    val provider = new DataStoreSecurityProviderImpl
-
-    "be able to secure a feature reader " >> {
-
+    "be able to secure a feature reader " in {
       val fr = new DelegateFeatureReader[SimpleFeatureType, SimpleFeature](testSFT, new DelegateFeatureIterator[SimpleFeature](features.iterator))
       
-      val secureFr = provider.secure(fr)
+      val secureFr = new DataStoreSecurityProviderImpl().secure(fr)
 
       secureFr.hasNext must beTrue
       secureFr.next mustEqual features(1)
@@ -67,16 +66,14 @@ class DataStoreSecurityProviderImplTest extends Specification with Mockito {
       secureFr.hasNext must beFalse
     }
 
-    "be able to secure a feature collection" >> {
-
+    "be able to secure a feature collection" in {
       val fc = new DefaultFeatureCollection(null, testSFT)
       fc.addAll(features)
 
-      validate(provider.secure(fc))
+      validate(new DataStoreSecurityProviderImpl().secure(fc))
     }
 
-    "be able to secure a feature source" >> {
-
+    "be able to secure a feature source when getting all features" in {
       val fc = new DefaultFeatureCollection(null, testSFT)
       fc.addAll(features)
 
@@ -85,92 +82,88 @@ class DataStoreSecurityProviderImplTest extends Specification with Mockito {
       val fs = mock[SimpleFeatureSource]
       fs.getDataStore returns ds
 
-      val secureFs = provider.secure(fs)
+      val secureFs = new DataStoreSecurityProviderImpl().secure(fs)
 
-      "when getting all features" >> {
-        fs.getFeatures returns fc
+      fs.getFeatures returns fc
 
-        validate(secureFs.getFeatures)
-      }
-
-      "when using a query" >> {
-        val query = mock[Query]
-        fs.getFeatures(query) returns fc
-
-        validate(secureFs.getFeatures(query))
-      }
-
-      "when using a filter" >> {
-        val filter = mock[Filter]
-        fs.getFeatures(filter) returns fc
-
-        validate(secureFs.getFeatures(filter))
-      }
+      validate(secureFs.getFeatures)
     }
 
-    def validate(secureFc: FeatureCollection[SimpleFeatureType, SimpleFeature]): MatchResult[Boolean] = {
-      val iter = secureFc.features()
+    "be able to secure a feature source when using a query" in {
+      val fc = new DefaultFeatureCollection(null, testSFT)
+      fc.addAll(features)
 
-      iter.hasNext must beTrue
-      iter.next mustEqual features(1)
+      val ds = mock[DataStore]
 
-      iter.hasNext must beTrue
-      iter.next mustEqual features(4)
+      val fs = mock[SimpleFeatureSource]
+      fs.getDataStore returns ds
 
-      iter.hasNext must beFalse
-    }
-  }
+      val secureFs = new DataStoreSecurityProviderImpl().secure(fs)
 
-  "GMSecureFeatureSource" should {
+      val query = mock[Query]
+      fs.getFeatures(query) returns fc
 
-    "return the secure" >> {
-      "DataStore" >> {
-        val sfs = mock[SimpleFeatureSource]
-        sfs.getSchema returns testSFT
-
-        val secureDS = mock[GMSecureDataStore]
-
-        val secureSource = new GMSecureFeatureSource(sfs, secureDS)
-        secureSource.getDataStore mustEqual secureDS
-      }
-
-      "DataAccess" >> {
-        val fs = mock[FeatureSource[SimpleFeatureType, SimpleFeature]]
-        fs.getSchema returns testSFT
-
-        val secureDA = mock[GMSecureDataAccess]
-
-        val secureSource = GMSecureFeatureSource(fs, secureDA)
-        secureSource.getDataStore mustEqual secureDA
-      }
+      validate(secureFs.getFeatures(query))
     }
 
-    "or create a secure" >> {
-      "DataStore" >> {
-        val ds = mock[DataStore]
-        val fs = mock[SimpleFeatureStore]
-        fs.getSchema returns testSFT
-        fs.getDataStore returns ds
+    "be able to secure a feature source when using a filter" in {
+      val fc = new DefaultFeatureCollection(null, testSFT)
+      fc.addAll(features)
 
-        val secureFs = GMSecureFeatureSource(fs)
-        secureFs.getDataStore.isInstanceOf[GMSecureDataStore] must beTrue
-      }
+      val ds = mock[DataStore]
 
-      "DataAccess" >> {
-        val da = mock[DataAccess[SimpleFeatureType, SimpleFeature]]
-        val fs = mock[FeatureSource[SimpleFeatureType, SimpleFeature]]
-        fs.getSchema returns testSFT
-        fs.getDataStore returns da
+      val fs = mock[SimpleFeatureSource]
+      fs.getDataStore returns ds
 
-        val secureFs = GMSecureFeatureSource(fs)
-        secureFs.getDataStore.isInstanceOf[GMSecureDataAccess] must beTrue
-      }
+      val secureFs = new DataStoreSecurityProviderImpl().secure(fs)
+
+      val filter = mock[Filter]
+      fs.getFeatures(filter) returns fc
+
+      validate(secureFs.getFeatures(filter))
     }
-  }
 
-  "GMSecureDataAccess" should {
+    "return the secure DataStore" in {
+      val sfs = mock[SimpleFeatureSource]
+      sfs.getSchema returns testSFT
 
-    "provide a secure feature source" >> {
+      val secureDS = mock[GMSecureDataStore]
+
+      val secureSource = new GMSecureFeatureSource(sfs, secureDS)
+      secureSource.getDataStore mustEqual secureDS
+    }
+
+    "return the secure DataAccess" in {
+      val fs = mock[FeatureSource[SimpleFeatureType, SimpleFeature]]
+      fs.getSchema returns testSFT
+
+      val secureDA = mock[GMSecureDataAccess]
+
+      val secureSource = GMSecureFeatureSource(fs, secureDA)
+      secureSource.getDataStore mustEqual secureDA
+    }
+
+    "or create a secure DataStore" in {
+      val ds = mock[DataStore]
+      val fs = mock[SimpleFeatureStore]
+      fs.getSchema returns testSFT
+      fs.getDataStore returns ds
+
+      val secureFs = GMSecureFeatureSource(fs)
+      secureFs.getDataStore.isInstanceOf[GMSecureDataStore] must beTrue
+    }
+
+    "or create a secure DataAccess" in {
+      val da = mock[DataAccess[SimpleFeatureType, SimpleFeature]]
+      val fs = mock[FeatureSource[SimpleFeatureType, SimpleFeature]]
+      fs.getSchema returns testSFT
+      fs.getDataStore returns da
+
+      val secureFs = GMSecureFeatureSource(fs)
+      secureFs.getDataStore.isInstanceOf[GMSecureDataAccess] must beTrue
+    }
+
+    "provide a secure feature source" in {
       val name = mock[Name]
       val fs = mock[SimpleFeatureStore]
 
@@ -183,17 +176,14 @@ class DataStoreSecurityProviderImplTest extends Specification with Mockito {
       result.isInstanceOf[GMSecureFeatureSource] must beTrue
       result.getDataStore mustEqual secureDa
     }
-  }
 
-  "GMSecureDataStore" should {
+    "provide a secure feature source by Name" in {
+      val fs = mock[SimpleFeatureStore]
+      val fr = mock[SimpleFeatureReader]
 
-    val fs = mock[SimpleFeatureStore]
-    val fr = mock[SimpleFeatureReader]
+      val ds = mock[DataStore]
+      val secureDs = new GMSecureDataStore(ds)
 
-    val ds = mock[DataStore]
-    val secureDs = new GMSecureDataStore(ds)
-
-    "provide a secure feature source by Name" >> {
       val name = mock[Name]
       ds.getFeatureSource(name) returns fs
 
@@ -202,7 +192,13 @@ class DataStoreSecurityProviderImplTest extends Specification with Mockito {
       result.getDataStore mustEqual secureDs
     }
 
-    "provide a secure feature source by String" >> {
+    "provide a secure feature source by String" in {
+      val fs = mock[SimpleFeatureStore]
+      val fr = mock[SimpleFeatureReader]
+
+      val ds = mock[DataStore]
+      val secureDs = new GMSecureDataStore(ds)
+
       val name = "test"
       ds.getFeatureSource(name) returns fs
 
@@ -211,7 +207,13 @@ class DataStoreSecurityProviderImplTest extends Specification with Mockito {
       result.getDataStore mustEqual secureDs
     }
 
-    "provide a secure feature reader" >> {
+    "provide a secure feature reader" in {
+      val fs = mock[SimpleFeatureStore]
+      val fr = mock[SimpleFeatureReader]
+
+      val ds = mock[DataStore]
+      val secureDs = new GMSecureDataStore(ds)
+
       val query = mock[Query]
       val txn = mock[Transaction]
       ds.getFeatureReader(query, txn) returns fr
@@ -220,5 +222,17 @@ class DataStoreSecurityProviderImplTest extends Specification with Mockito {
       result.isInstanceOf[FilteringFeatureReader[SimpleFeatureType, SimpleFeature]] must beTrue
       result.asInstanceOf[FilteringFeatureReader[SimpleFeatureType, SimpleFeature]].getDelegate mustEqual fr
     }
+  }
+
+  def validate(secureFc: FeatureCollection[SimpleFeatureType, SimpleFeature]): MatchResult[Boolean] = {
+    val iter = secureFc.features()
+
+    iter.hasNext must beTrue
+    iter.next mustEqual features(1)
+
+    iter.hasNext must beTrue
+    iter.next mustEqual features(4)
+
+    iter.hasNext must beFalse
   }
 }

@@ -11,7 +11,6 @@ package org.geomesa.gs.security
 import java.io.Serializable
 import java.util
 
-import org.apache.accumulo.core.security.Authorizations
 import org.locationtech.geomesa.security.AuthorizationsProvider
 import org.springframework.security.authentication.TestingAuthenticationToken
 import org.springframework.security.core.context.SecurityContextHolder

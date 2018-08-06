@@ -62,12 +62,12 @@
     </modules>
 
     <properties>
-        <geomesa.version>2.0.0</geomesa.version>
+        <geomesa.version>2.1.0-SNAPSHOT</geomesa.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <scala.version>2.11.7</scala.version>
-        <scala.abi.version>2.11</scala.abi.version>
+        <scala.binary.version>2.11</scala.binary.version>
 
         <gs.version>2.12.0</gs.version>
         <gt.version>18.0</gt.version>
@@ -86,8 +86,8 @@
         <scalalogging.version>3.1.0</scalalogging.version>
         <log4j.version>1.2.17</log4j.version>
 
-        <junit.version>4.5</junit.version>
-        <specs2.version>2.3.13</specs2.version>
+        <specs2.version>4.3.2</specs2.version>
+        <junit.version>4.12</junit.version>
 
         <!-- distribution properties -->
         <dist.geoserver.lib>geoserver/WEB-INF/lib</dist.geoserver.lib>
@@ -112,6 +112,23 @@
         <dependency>
             <groupId>org.geoserver</groupId>
             <artifactId>gs-platform</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-core_${scala.binary.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-junit_${scala.binary.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.specs2</groupId>
+            <artifactId>specs2-mock_${scala.binary.version}</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
         </dependency>
     </dependencies>
 
