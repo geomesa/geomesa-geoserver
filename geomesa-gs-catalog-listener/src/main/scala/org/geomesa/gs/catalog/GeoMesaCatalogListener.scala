@@ -9,10 +9,16 @@
 package org.geomesa.gs.catalog
 
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileContext, FileStatus, Path, RemoteIterator}
 import org.geoserver.catalog.event._
 import org.geoserver.catalog._
 import org.geoserver.security.decorators.DecoratingDataStore
 import org.geotools.data.DataStore
+import org.geotools.geometry.jts.ReferencedEnvelope
+import org.locationtech.geomesa.fs.FileSystemDataStoreFactory
+import org.locationtech.geomesa.fs.FileSystemDataStoreFactory.FileSystemDataStoreParams
+import org.locationtech.geomesa.fs.storage.common.utils.StorageUtils
 import org.locationtech.geomesa.index.geotools.GeoMesaDataStore
 import org.locationtech.geomesa.web.core.GeoMesaServletCatalog
 import org.locationtech.geomesa.web.core.GeoMesaServletCatalog.GeoMesaLayerInfo
@@ -81,8 +87,31 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
     event.getSource match {
       case fti: FeatureTypeInfo => addFeatureTypeInfo(fti)
       case dti: DataStoreInfo => registerLayers(dti)
+      case wsi: WorkspaceInfo => registerDataStore(wsi)
       case _ => event.getSource.getClass  // not a new layer; no action necessary.
     }
+  }
+
+  def registerDataStore(info: WorkspaceInfo): Unit = {
+    val base = System.getProperty("GEOMESA_FSDS_BASE_DIRECTORY")
+    val name = info.getName
+    registerDataStore(base, name, info)
+  }
+
+  def registerDataStore(base: String, directory: String, wsi: WorkspaceInfo): Unit = {
+    val dsi = catalog.getFactory.createDataStore()
+    dsi.setWorkspace(wsi)
+    dsi.setEnabled(true)
+    dsi.setName(directory)
+
+    val factory = new FileSystemDataStoreFactory
+    dsi.setType(factory.getDisplayName())
+    val connParams = dsi.getConnectionParameters
+    val path = s"$base$directory"
+    connParams.put(FileSystemDataStoreParams.PathParam.getName, path)
+    connParams.put("namespace", catalog.getNamespaceByPrefix(wsi.getName).getURI)
+
+    catalog.save(dsi)
   }
 
   override def handleRemoveEvent(event: CatalogRemoveEvent): Unit = {
@@ -111,7 +140,6 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
   // First pass of auto-registering layers.
   def registerLayers(dti: DataStoreInfo): Unit = {
     val ds = dti.getDataStore(null)
-
     val wsi = dti.getWorkspace
 
     ds.getNames.foreach { name =>
@@ -121,9 +149,19 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
       builder.setStore(dti)
       val fti = builder.buildFeatureType(name)
       val li = builder.buildLayer(fti)
-      val bbox = builder.getBoundsFromCRS(fti)
+      val bbox = {
+        val tmp = builder.getNativeBounds(fti)
+        if (tmp.equals(ReferencedEnvelope.EVERYTHING)) {
+          builder.getBoundsFromCRS(fti)
+        } else {
+          tmp
+        }
+      }
+
       fti.setNativeBoundingBox(bbox)
       fti.setLatLonBoundingBox(bbox)
+      val namespace = catalog.getNamespaceByPrefix(wsi.getName)
+      fti.setNamespace(namespace)
       catalog.add(fti)
       catalog.add(li)
     }
