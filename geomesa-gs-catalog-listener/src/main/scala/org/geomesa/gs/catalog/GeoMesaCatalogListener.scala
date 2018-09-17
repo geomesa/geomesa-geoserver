@@ -92,13 +92,10 @@ class GeoMesaCatalogListener extends CatalogListener with InitializingBean with 
     }
   }
 
-  def registerDataStore(info: WorkspaceInfo): Unit = {
+  def registerDataStore(wsi: WorkspaceInfo): Unit = {
     val base = System.getProperty("GEOMESA_FSDS_BASE_DIRECTORY")
-    val name = info.getName
-    registerDataStore(base, name, info)
-  }
+    val directory = wsi.getName
 
-  def registerDataStore(base: String, directory: String, wsi: WorkspaceInfo): Unit = {
     val dsi = catalog.getFactory.createDataStore()
     dsi.setWorkspace(wsi)
     dsi.setEnabled(true)
