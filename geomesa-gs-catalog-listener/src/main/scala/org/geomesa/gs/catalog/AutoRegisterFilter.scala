@@ -8,6 +8,9 @@
 
 package org.geomesa.gs.catalog
 
+import org.apache.hadoop.fs.{Path}
+
+
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.{FilterChain, FilterConfig, ServletRequest, ServletResponse}
 import org.geoserver.catalog.Catalog
@@ -50,9 +53,12 @@ class AutoRegisterFilter extends GeoServerFilter {
   }
 
   def shouldCreate(workspace: String): Boolean = {
-    // Check that
-    // val base = System.getProperty("GEOMESA_FSDS_BASE_DIRECTORY") + workspace exists!
-    !Seq("styles", "web", "index.html", "openlayers3").contains(workspace)
+    val base = System.getProperty("GEOMESA_FSDS_BASE_DIRECTORY")
+    if(base == null || Seq("styles", "web", "index.html", "openlayers3").contains(workspace)) return false
+
+    val path = new Path(base, workspace)
+    val fs = path.getFileSystem(new org.apache.hadoop.conf.Configuration)
+    fs.exists(path)
   }
 
   override def destroy(): Unit = { }
