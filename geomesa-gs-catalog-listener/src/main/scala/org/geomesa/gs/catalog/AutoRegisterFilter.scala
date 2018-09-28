@@ -52,7 +52,7 @@ class AutoRegisterFilter extends GeoServerFilter {
   def shouldCreate(workspace: String): Boolean = {
     // Check that
     // val base = System.getProperty("GEOMESA_FSDS_BASE_DIRECTORY") + workspace exists!
-    !Seq("styles", "web", "index.html", "openlayers3").contains(workspace)
+    !Seq("gwc", "styles", "web", "index.html", "openlayers3").contains(workspace)
   }
 
   override def destroy(): Unit = { }
