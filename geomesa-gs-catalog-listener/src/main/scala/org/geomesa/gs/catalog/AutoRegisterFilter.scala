@@ -54,7 +54,7 @@ class AutoRegisterFilter extends GeoServerFilter {
 
   def shouldCreate(workspace: String): Boolean = {
     val base = System.getProperty("GEOMESA_FSDS_BASE_DIRECTORY")
-    if(base == null || Seq("styles", "web", "index.html", "openlayers3").contains(workspace)) return false
+    if(base == null || Seq("styles", "gwc", "web", "index.html", "openlayers3").contains(workspace)) return false
 
     val path = new Path(base, workspace)
     val fs = path.getFileSystem(new org.apache.hadoop.conf.Configuration)
