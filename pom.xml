@@ -62,23 +62,23 @@
     </modules>
 
     <properties>
-        <geomesa.version>2.1.0</geomesa.version>
+        <geomesa.version>2.2.0-SNAPSHOT</geomesa.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <scala.version>2.11.7</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
 
-        <gs.version>2.12.0</gs.version>
-        <gt.version>18.0</gt.version>
-        <jts.version>1.14.0</jts.version>
-        <imageio-ext.version>1.1.17</imageio-ext.version>
-        <guava.version>17.0</guava.version>
+        <gs.version>2.14.0</gs.version>
+        <gt.version>20.0</gt.version>
+        <jts.version>1.16.0</jts.version>
+        <imageio-ext.version>1.1.25</imageio-ext.version>
+        <guava.version>25.1-jre</guava.version>
         <wicket.version>7.6.0</wicket.version>
 
         <!-- This is the spring version in geoserver 2.12 -->
-        <spring.version>4.3.7.RELEASE</spring.version>
-        <spring.security.version>4.0.4.RELEASE</spring.security.version>
+        <spring.version>4.3.18.RELEASE</spring.version>
+        <spring.security.version>4.2.7.RELEASE</spring.security.version>
 
         <!-- logging properties - we expect logging jars to be provided -->
         <!-- 1.7.x is for hadoop 2 and accumulo 1.5.x -->
@@ -290,19 +290,19 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>com.vividsolutions</groupId>
+                <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-core</artifactId>
                 <version>${jts.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>com.vividsolutions</groupId>
+                <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-example</artifactId>
                 <version>${jts.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>com.vividsolutions</groupId>
+                <groupId>org.locationtech.jts</groupId>
                 <artifactId>jts-io</artifactId>
                 <version>${jts.version}</version>
                 <scope>provided</scope>
