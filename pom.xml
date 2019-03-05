@@ -498,6 +498,7 @@
                                 <descriptors>
                                     <descriptor>${project.basedir}/../build/assembly.xml</descriptor>
                                 </descriptors>
+                                <tarLongFileMode>posix</tarLongFileMode>
                             </configuration>
                         </execution>
                     </executions>
