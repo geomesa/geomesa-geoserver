@@ -69,16 +69,16 @@
         <scala.version>2.11.7</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
 
-        <gs.version>2.14.0</gs.version>
-        <gt.version>20.0</gt.version>
+        <gs.version>2.15.1</gs.version>
+        <gt.version>21.1</gt.version>
         <jts.version>1.16.0</jts.version>
         <imageio-ext.version>1.1.25</imageio-ext.version>
         <guava.version>25.1-jre</guava.version>
         <wicket.version>7.6.0</wicket.version>
 
-        <!-- This is the spring version in geoserver 2.12 -->
-        <spring.version>4.3.18.RELEASE</spring.version>
-        <spring.security.version>4.2.7.RELEASE</spring.security.version>
+        <!-- This is the spring version in geoserver 2.15.1 -->
+        <spring.version>5.1.1.RELEASE</spring.version>
+        <spring.security.version>5.1.1.RELEASE</spring.security.version>
 
         <!-- logging properties - we expect logging jars to be provided -->
         <!-- 1.7.x is for hadoop 2 and accumulo 1.5.x -->
@@ -189,12 +189,6 @@
             </dependency>
             <dependency>
                 <groupId>org.geotools</groupId>
-                <artifactId>gt-api</artifactId>
-                <version>${gt.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.geotools</groupId>
                 <artifactId>gt-cql</artifactId>
                 <version>${gt.version}</version>
                 <scope>provided</scope>
@@ -250,12 +244,6 @@
             <dependency>
                 <groupId>org.geotools</groupId>
                 <artifactId>gt-coverage</artifactId>
-                <version>${gt.version}</version>
-                <scope>provided</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.geotools</groupId>
-                <artifactId>gt-data</artifactId>
                 <version>${gt.version}</version>
                 <scope>provided</scope>
             </dependency>
