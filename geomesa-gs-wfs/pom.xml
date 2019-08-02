@@ -37,11 +37,6 @@
         <!-- provided dependencies -->
         <dependency>
             <groupId>org.geotools</groupId>
-            <artifactId>gt-data</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.geotools</groupId>
             <artifactId>gt-process</artifactId>
             <scope>provided</scope>
         </dependency>
