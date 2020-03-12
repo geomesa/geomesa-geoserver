@@ -55,14 +55,13 @@
     <modules>
         <module>geomesa-gs-avro-mimetype</module>
         <module>geomesa-gs-catalog-listener</module>
-        <module>geomesa-gs-raster</module>
         <module>geomesa-gs-security</module>
         <module>geomesa-gs-styling</module>
         <module>geomesa-gs-wfs</module>
     </modules>
 
     <properties>
-        <geomesa.version>2.4.0</geomesa.version>
+        <geomesa.version>2.5.0-SNAPSHOT</geomesa.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 

@@ -9,7 +9,6 @@
 package org.geomesa.gs.security
 
 import java.io.Serializable
-import java.util
 
 import org.locationtech.geomesa.security.AuthorizationsProvider
 import org.springframework.security.authentication.TestingAuthenticationToken
@@ -23,5 +22,5 @@ class TestAuthorizationsProvider extends AuthorizationsProvider {
     authentication.getAuthorities.map(_.getAuthority).toSeq
   }
 
-  override def configure(params: util.Map[String, Serializable]): Unit = {}
+  override def configure(params: java.util.Map[String, _ <: Serializable]): Unit = {}
 }
