@@ -16,10 +16,6 @@
             <artifactId>geomesa-security_2.11</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-accumulo-security_2.11</artifactId>
-        </dependency>
-        <dependency>
             <groupId>org.apache.accumulo</groupId>
             <artifactId>accumulo-core</artifactId>
         </dependency>

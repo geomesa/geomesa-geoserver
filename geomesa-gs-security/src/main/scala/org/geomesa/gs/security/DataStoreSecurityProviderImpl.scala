@@ -7,15 +7,17 @@
  ***********************************************************************/
 
 package org.geomesa.gs.security
-import org.geomesa.gs.security.DataStoreSecurityProviderImpl.{DA, FC, FR, FS}
 import com.typesafe.scalalogging.LazyLogging
+import org.geomesa.gs.security.DataStoreSecurityProviderImpl.{DA, FC, FR, FS}
 import org.geoserver.security.decorators.{DecoratingDataAccess, DecoratingDataStore, DecoratingSimpleFeatureSource}
 import org.geotools.data._
 import org.geotools.data.simple.{SimpleFeatureCollection, SimpleFeatureSource}
+import org.geotools.factory.CommonFactoryFinder
 import org.geotools.feature.FeatureCollection
 import org.geotools.feature.collection.FilteringSimpleFeatureCollection
-import org.locationtech.geomesa.accumulo.security.VisibilityFilterFunction
+import org.geotools.util.factory.GeoTools
 import org.locationtech.geomesa.security.DataStoreSecurityProvider
+import org.locationtech.geomesa.security.filter.VisibilityFilterFunction
 import org.opengis.feature.`type`.Name
 import org.opengis.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.opengis.filter.Filter
@@ -98,17 +100,29 @@ object GMSecureFeatureSource {
 
 object GMSecureFeatureCollection extends LazyLogging {
 
+  private val filter: Filter = {
+    val ff = CommonFactoryFinder.getFilterFactory2(GeoTools.getDefaultHints)
+    val visibilityFunction = ff.function(VisibilityFilterFunction.Name.getFunctionName)
+    ff.equals(visibilityFunction, ff.literal(true))
+  }
+
   def apply(fc: FC): SimpleFeatureCollection = {
     logger.info("Secured Feature Collection '{}'", fc)
-    new FilteringSimpleFeatureCollection(fc, VisibilityFilterFunction.filter)
+    new FilteringSimpleFeatureCollection(fc, filter)
   }
 }
 
 object GMSecureFeatureReader extends LazyLogging {
 
+  private val filter: Filter = {
+    val ff = CommonFactoryFinder.getFilterFactory2(GeoTools.getDefaultHints)
+    val visibilityFunction = ff.function(VisibilityFilterFunction.Name.getFunctionName)
+    ff.equals(visibilityFunction, ff.literal(true))
+  }
+
   def apply(fr: FR): FR = {
     logger.info("Secured Feature Reader '{}'", fr)
-    new FilteringFeatureReader[SimpleFeatureType, SimpleFeature](fr, VisibilityFilterFunction.filter)
+    new FilteringFeatureReader[SimpleFeatureType, SimpleFeature](fr, filter)
   }
 }
 
