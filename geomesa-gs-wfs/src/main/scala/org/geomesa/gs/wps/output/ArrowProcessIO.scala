@@ -14,6 +14,8 @@ import org.geomesa.gs.wfs.output.ArrowOutputFormat
 import org.geoserver.wps.ppio.BinaryPPIO
 import org.geoserver.wps.ppio.ProcessParameterIO.PPIODirection
 
+import scala.collection.JavaConverters._
+
 /**
   * WPS output formatting for arrow. Does not support input formatting.
   */
@@ -22,10 +24,8 @@ class ArrowProcessIO extends BinaryPPIO(classOf[java.util.Iterator[Array[Byte]]]
 
   override def getDirection: PPIODirection = PPIODirection.ENCODING
 
-  override def encode(value: AnyRef, os: OutputStream): Unit = {
-    import scala.collection.JavaConversions._
-    value.asInstanceOf[java.util.Iterator[Array[Byte]]].foreach(os.write)
-  }
+  override def encode(value: AnyRef, os: OutputStream): Unit =
+    value.asInstanceOf[java.util.Iterator[Array[Byte]]].asScala.foreach(os.write)
 
   override def decode(input: InputStream): AnyRef = throw new NotImplementedError("Only supports encode")
 
