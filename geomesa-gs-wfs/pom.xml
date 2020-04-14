@@ -8,7 +8,7 @@
     </parent>
 
     <artifactId>geomesa-gs-wfs</artifactId>
-    <name>GeoMesa WFS Geoserver Extension</name>
+    <name>GeoMesa GeoServer WFS Extension</name>
 
     <dependencies>
 
@@ -19,6 +19,10 @@
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
             <artifactId>geomesa-process-vector_2.11</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.locationtech.geomesa</groupId>
+            <artifactId>geomesa-feature-avro_2.11</artifactId>
         </dependency>
 
         <dependency>

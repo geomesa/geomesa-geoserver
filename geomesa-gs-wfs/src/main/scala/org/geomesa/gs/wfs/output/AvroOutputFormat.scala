@@ -1,14 +1,15 @@
 /***********************************************************************
- * Copyright (c) 2013-2017 Commonwealth Computer Research, Inc.
+ * Copyright (c) 2013-2020 Commonwealth Computer Research, Inc.
  * All rights reserved. This program and the accompanying materials are
  * made available under the terms of the GNU GENERAL PUBLIC LICENSE,
  * Version 2 which accompanies this distribution and is available at
  * https://opensource.org/licenses/GPL-2.0.
  ***********************************************************************/
 
-package org.geomesa.gs.wfs.avro
+package org.geomesa.gs.wfs.output
 
 import java.io.OutputStream
+import java.util.Collections
 
 import org.geoserver.config.GeoServer
 import org.geoserver.ows.Response
@@ -17,10 +18,10 @@ import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.locationtech.geomesa.features.avro.AvroDataFileWriter
+import org.locationtech.geomesa.utils.io.WithClose
 
-import scala.collection.JavaConversions._
-
-class AvroWFSOutputFormat(gs: GeoServer) extends WFSGetFeatureOutputFormat(gs, Set("bin", "application/vnd.avro")) {
+class AvroOutputFormat(gs: GeoServer)
+    extends WFSGetFeatureOutputFormat(gs, Collections.singleton("application/vnd.avro")) {
 
   override def getMimeType(value: scala.Any, operation: Operation): String = "application/vnd.avro"
 
@@ -35,9 +36,7 @@ class AvroWFSOutputFormat(gs: GeoServer) extends WFSGetFeatureOutputFormat(gs, S
   override def write(fcr: FeatureCollectionResponse,
                      os: OutputStream,
                      operation: Operation): Unit = {
-    val features = fcr.getFeatures.head.asInstanceOf[SimpleFeatureCollection]
-    val fw = new AvroDataFileWriter(os, features.getSchema)
-    fw.append(features)
-    fw.flush()
+    val features = fcr.getFeatures.get(0).asInstanceOf[SimpleFeatureCollection]
+    WithClose(new AvroDataFileWriter(os, features.getSchema))(_.append(features))
   }
 }

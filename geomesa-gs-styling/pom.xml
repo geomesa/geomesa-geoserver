@@ -8,7 +8,7 @@
     </parent>
 
     <artifactId>geomesa-gs-styling</artifactId>
-    <name>GeoMesa Styling Geoserver Extension</name>
+    <name>GeoMesa GeoServer Styling Extension</name>
 
     <dependencies>
         <dependency>

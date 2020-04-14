@@ -11,6 +11,10 @@
         <constructor-arg ref="geoServer"/>
     </bean>
 
+    <bean id="avroOutputFormat" class="org.geomesa.gs.wfs.output.AvroOutputFormat">
+        <constructor-arg ref="geoServer"/>
+    </bean>
+
     <bean id="binaryViewerWpsOutput" class="org.geomesa.gs.wps.output.BinaryViewerProcessIO"/>
 
     <bean id="arrowWpsOutput" class="org.geomesa.gs.wps.output.ArrowProcessIO"/>

@@ -53,9 +53,7 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>geomesa-gs-avro-mimetype</module>
         <module>geomesa-gs-catalog-listener</module>
-        <module>geomesa-gs-security</module>
         <module>geomesa-gs-styling</module>
         <module>geomesa-gs-wfs</module>
     </modules>
@@ -509,7 +507,7 @@
                         <header>build/copyright/ccri.txt</header>
                         <validHeaders />
                         <properties>
-                            <year>2017</year>
+                            <year>2020</year>
                             <owner>Commonwealth Computer Research, Inc.</owner>
                         </properties>
                         <headerDefinitions>
