@@ -11,8 +11,8 @@ package org.geomesa.gs.catalog
 import com.typesafe.scalalogging.LazyLogging
 import org.geoserver.catalog.event._
 import org.geoserver.catalog.{Catalog, DataStoreInfo, FeatureTypeInfo, WorkspaceInfo}
-import org.geoserver.security.decorators.DecoratingDataStore
 import org.geotools.data.DataStore
+import org.geotools.data.store.DecoratingDataStore
 import org.locationtech.geomesa.accumulo.data.AccumuloDataStore
 import org.locationtech.geomesa.web.core.GeoMesaServletCatalog
 import org.locationtech.geomesa.web.core.GeoMesaServletCatalog.GeoMesaLayerInfo

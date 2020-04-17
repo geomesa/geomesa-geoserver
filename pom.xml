@@ -66,8 +66,8 @@
         <scala.version>2.11.7</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
 
-        <gs.version>2.15.1</gs.version>
-        <gt.version>21.1</gt.version>
+        <gs.version>2.17-RC</gs.version>
+        <gt.version>23.0</gt.version>
         <jts.version>1.16.0</jts.version>
         <imageio-ext.version>1.2.1</imageio-ext.version>
         <guava.version>27.0-jre</guava.version>
