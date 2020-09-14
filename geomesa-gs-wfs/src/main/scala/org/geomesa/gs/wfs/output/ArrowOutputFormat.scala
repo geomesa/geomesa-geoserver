@@ -48,6 +48,8 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
   override def getMimeType(value: AnyRef, operation: Operation): String = ArrowOutputFormat.MimeType
 
+  override def getCapabilitiesElementName: String = "ARROW"
+
   override def getPreferredDisposition(value: AnyRef, operation: Operation): String = Response.DISPOSITION_INLINE
 
   override def getAttachmentFileName(value: AnyRef, operation: Operation): String = {
