@@ -25,6 +25,8 @@ class AvroOutputFormat(gs: GeoServer)
 
   override def getMimeType(value: scala.Any, operation: Operation): String = "application/vnd.avro"
 
+  override def getCapabilitiesElementName: String = "AVRO"
+
   override def getPreferredDisposition(value: scala.Any, operation: Operation): String = Response.DISPOSITION_ATTACH
 
   override def getAttachmentFileName(value: scala.Any, operation: Operation): String = {

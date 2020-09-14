@@ -51,6 +51,8 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
 
   override def getMimeType(value: AnyRef, operation: Operation): String = MIME_TYPE
 
+  override def getCapabilitiesElementName: String = "BIN"
+
   override def getPreferredDisposition(value: AnyRef, operation: Operation): String = Response.DISPOSITION_INLINE
 
   override def getAttachmentFileName(value: AnyRef, operation: Operation): String = {
