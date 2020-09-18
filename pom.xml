@@ -54,6 +54,7 @@
 
     <modules>
         <module>geomesa-gs-catalog-listener</module>
+        <module>geomesa-gs-security</module>
         <module>geomesa-gs-styling</module>
         <module>geomesa-gs-wfs</module>
     </modules>
