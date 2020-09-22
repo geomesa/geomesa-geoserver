@@ -27,6 +27,7 @@ class ElasticRequestDataListener extends RequestDataListener {
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], new DateSerializer)
     .registerTypeAdapter(classOf[BoundingBox], new BoundingBoxSerializer)
+    .registerTypeAdapter(classOf[Throwable], new ThrowableSerializer)
     .serializeNulls().create()
 
   class DateSerializer extends JsonSerializer[Date] {
@@ -40,6 +41,12 @@ class ElasticRequestDataListener extends RequestDataListener {
        new JsonPrimitive(src.toString)
      }
    }
+
+  class ThrowableSerializer extends JsonSerializer[Throwable] {
+    override def serialize(src: Throwable, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
+      new JsonPrimitive(src.getMessage)
+    }
+  }
 
   override def requestStarted(requestData: RequestData): Unit = {}
 
