@@ -50,18 +50,31 @@ class ElasticRequestDataListener extends RequestDataListener {
 
   override def requestStarted(requestData: RequestData): Unit = {}
 
-  override def requestUpdated(requestData: RequestData): Unit = {}
+  override def requestUpdated(requestData: RequestData): Unit = {
+    writeToElasticsearch(requestData)
+  }
 
   override def requestCompleted(requestData: RequestData): Unit = {
+    //writeToElasticsearch(requestData)
+  }
 
-    val json = gson.toJson(requestData)
-    println(s"Request Data: \n$json")
-    import org.elasticsearch.action.index.IndexRequest
-    import org.elasticsearch.common.xcontent.XContentType
-    val request = new IndexRequest("geoserver")
-    request.source(json, XContentType.JSON)
-    // TODO: Switch to Async request.
-    client.index(request, RequestOptions.DEFAULT)
+  private def writeToElasticsearch(requestData: RequestData) = {
+    // 1. Skip over requests which do not have the resources set.
+    // 2. Skip over failures without the endTime set.
+    if (
+      !requestData.getResources.isEmpty &&
+      (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
+    ) {
+      val json = gson.toJson(requestData)
+      println(s"Request Data: \n$json")
+      import org.elasticsearch.action.index.IndexRequest
+      import org.elasticsearch.common.xcontent.XContentType
+      val request = new IndexRequest("geoserver")
+      request.id(s"${requestData.getId}:${requestData.getStartTime}")
+      request.source(json, XContentType.JSON)
+      // TODO: Switch to Async request.
+      client.index(request, RequestOptions.DEFAULT)
+    }
   }
 
   override def requestPostProcessed(requestData: RequestData): Unit = {}
