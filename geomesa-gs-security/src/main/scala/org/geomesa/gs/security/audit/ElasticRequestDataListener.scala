@@ -18,10 +18,13 @@ import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
 
+import scala.collection.JavaConverters.mapAsScalaMapConverter
+
 // TODO externalize hostname:port in a constructor and sample applicationContext.xml
-class ElasticRequestDataListener extends RequestDataListener {
+class ElasticRequestDataListener(val defaultHost : String)  extends RequestDataListener{
   val client: CloseableHttpClient = HttpClients.createDefault
-  val post = new HttpPost("http://localhost:9200/geoserver/_doc?pretty")
+  val hostVar = sys.env.getOrElse("ELASTICSEARCH_HOST", defaultHost)
+  var post = new HttpPost(hostVar + "/geoserver/_doc?pretty")
   post.addHeader("Content-Type", "application/json")
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], new DateSerializer)
@@ -48,7 +51,6 @@ class ElasticRequestDataListener extends RequestDataListener {
 
     val json = gson.toJson(requestData)
     println(s"Request Data: \n$json")
-    var sent = false
     try {
       post.setEntity(new StringEntity(json))
       val response = client.execute(post)

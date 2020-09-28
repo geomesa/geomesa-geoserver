@@ -4,8 +4,7 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
   <bean id="geomesaAuditor" class="org.geomesa.gs.security.audit.ElasticRequestDataListener">
-<!--    <constructor-arg index="0" ref="auditDataContext"/>-->
-<!--    <constructor-arg index="1" value="geomesa.audit"/>-->
-<!--    <constructor-arg index="2" value="1024"/>-->
+    <constructor-arg type = "java.lang.String" value = "http://localhost:9200"/>
   </bean>
+
 </beans>
