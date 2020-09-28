@@ -12,18 +12,17 @@ import java.lang.reflect.Type
 import java.util.Date
 
 import com.google.gson._
-import org.apache.http.HttpHost
-import org.elasticsearch.client.{RequestOptions, RestClient, RestHighLevelClient}
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.entity.StringEntity
+import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
 
 // TODO externalize hostname:port in a constructor and sample applicationContext.xml
 class ElasticRequestDataListener extends RequestDataListener {
-  val client = new RestHighLevelClient(
-    RestClient.builder(
-      new HttpHost("localhost", 9200, "http")
-    )
-  )
+  val client: CloseableHttpClient = HttpClients.createDefault
+  val post = new HttpPost("http://localhost:9200/geoserver/_doc?pretty")
+  post.addHeader("Content-Type", "application/json")
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], new DateSerializer)
     .registerTypeAdapter(classOf[BoundingBox], new BoundingBoxSerializer)
@@ -49,12 +48,14 @@ class ElasticRequestDataListener extends RequestDataListener {
 
     val json = gson.toJson(requestData)
     println(s"Request Data: \n$json")
-    import org.elasticsearch.action.index.IndexRequest
-    import org.elasticsearch.common.xcontent.XContentType
-    val request = new IndexRequest("geoserver")
-    request.source(json, XContentType.JSON)
+    var sent = false
+    try {
+      post.setEntity(new StringEntity(json))
+      val response = client.execute(post)
+      println("RESPONSE: " + response)
+      post.releaseConnection()
+    }
     // TODO: Switch to Async request.
-    client.index(request, RequestOptions.DEFAULT)
   }
 
   override def requestPostProcessed(requestData: RequestData): Unit = {}
