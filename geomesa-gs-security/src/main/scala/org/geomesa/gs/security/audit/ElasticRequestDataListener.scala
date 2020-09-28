@@ -29,6 +29,7 @@ class ElasticRequestDataListener(val defaultHost : String)  extends RequestDataL
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], new DateSerializer)
     .registerTypeAdapter(classOf[BoundingBox], new BoundingBoxSerializer)
+    .registerTypeAdapter(classOf[Throwable], new ThrowableSerializer)
     .serializeNulls().create()
 
   class DateSerializer extends JsonSerializer[Date] {
@@ -43,21 +44,39 @@ class ElasticRequestDataListener(val defaultHost : String)  extends RequestDataL
      }
    }
 
+  class ThrowableSerializer extends JsonSerializer[Throwable] {
+    override def serialize(src: Throwable, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
+      new JsonPrimitive(src.getMessage)
+    }
+  }
+
   override def requestStarted(requestData: RequestData): Unit = {}
 
-  override def requestUpdated(requestData: RequestData): Unit = {}
+  override def requestUpdated(requestData: RequestData): Unit = {
+    writeToElasticsearch(requestData)
+  }
 
   override def requestCompleted(requestData: RequestData): Unit = {
+    //writeToElasticsearch(requestData)
+  }
 
-    val json = gson.toJson(requestData)
-    println(s"Request Data: \n$json")
-    try {
-      post.setEntity(new StringEntity(json))
-      val response = client.execute(post)
-      println("RESPONSE: " + response)
-      post.releaseConnection()
+  private def writeToElasticsearch(requestData: RequestData) = {
+    // 1. Skip over requests which do not have the resources set.
+    // 2. Skip over failures without the endTime set.
+    if (
+      !requestData.getResources.isEmpty &&
+      (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
+    ) {
+      val json = gson.toJson(requestData)
+      println(s"Request Data: \n$json")
+      try {
+        post.setEntity(new StringEntity(json))
+        val response = client.execute(post)
+        println("RESPONSE: " + response)
+        post.releaseConnection()
+      }
+      // TODO: Switch to Async request.
     }
-    // TODO: Switch to Async request.
   }
 
   override def requestPostProcessed(requestData: RequestData): Unit = {}
