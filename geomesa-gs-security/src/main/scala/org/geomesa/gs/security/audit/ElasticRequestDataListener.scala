@@ -70,7 +70,7 @@ class ElasticRequestDataListener  extends RequestDataListener{
       try {
         post.setEntity(new StringEntity(json))
         val response = client.execute(post)
-        println("RESPONSE: " + response)
+      } finally {
         post.releaseConnection()
       }
       // TODO: Switch to Async request.
