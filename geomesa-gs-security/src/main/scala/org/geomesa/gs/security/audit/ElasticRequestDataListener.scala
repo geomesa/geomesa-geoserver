@@ -12,18 +12,24 @@ import java.lang.reflect.Type
 import java.util.Date
 
 import com.google.gson._
-import org.apache.http.client.methods.HttpPost
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost}
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
+import org.apache.logging.log4j.LogManager
+import org.apache.http.util.EntityUtils
 
 
 class ElasticRequestDataListener  extends RequestDataListener{
+  val logger = LogManager.getLogger(classOf[ElasticRequestDataListener])
+
   val client: CloseableHttpClient = HttpClients.createDefault
   val host = sys.env.getOrElse("ELASTICSEARCH_HOST", null)
-  var post = new HttpPost(host + "/geoserver/_doc?pretty")
+  val index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
+  var post = new HttpPost(host + "/" + index + "/_doc?pretty")
   post.addHeader("Content-Type", "application/json")
+
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], new DateSerializer)
     .registerTypeAdapter(classOf[BoundingBox], new BoundingBoxSerializer)
@@ -66,12 +72,21 @@ class ElasticRequestDataListener  extends RequestDataListener{
       (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
     ) {
       val json = gson.toJson(requestData)
-      println(s"Request Data: \n$json")
       try {
-        post.setEntity(new StringEntity(json))
-        val response = client.execute(post)
+        gson.fromJson(json, classOf[Any])
+      } catch {
+        case ex: JsonSyntaxException =>
+          logger.warn("Invalid JSON format. Proceeding anyways...")
+      }
+      post.setEntity(new StringEntity(json))
+      val response : CloseableHttpResponse = client.execute(post)
+      try{
+        val entity = response.getEntity
+        val content = EntityUtils.toString(entity)
+        logger.info("Post Response: " + content)
+        println(content)
       } finally {
-        post.releaseConnection()
+        response.close()
       }
       // TODO: Switch to Async request.
     }
