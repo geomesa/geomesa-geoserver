@@ -12,23 +12,31 @@ import java.lang.reflect.Type
 import java.util.Date
 
 import com.google.gson._
-import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost}
+import org.apache.http.client.methods.{HttpPost}
+import org.apache.http.client.config.RequestConfig
+import org.apache.http.impl.nio.client.CloseableHttpAsyncClient
+import org.apache.http.impl.nio.client.HttpAsyncClients
 import org.apache.http.entity.StringEntity
-import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
 import org.apache.logging.log4j.LogManager
-import org.apache.http.util.EntityUtils
 
 
 class ElasticRequestDataListener  extends RequestDataListener{
   val logger = LogManager.getLogger(classOf[ElasticRequestDataListener])
 
-  val client: CloseableHttpClient = HttpClients.createDefault
+//  val client: CloseableHttpClient = HttpClients.createDefault
+  val requestConfig = RequestConfig.custom()
+    .setSocketTimeout(3000)
+    .setConnectTimeout(3000).build();
+  val client: CloseableHttpAsyncClient = HttpAsyncClients.custom()
+    .setDefaultRequestConfig(requestConfig)
+    .build();
   val host = sys.env.getOrElse("ELASTICSEARCH_HOST", null)
   val index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
   var post = new HttpPost(host + "/" + index + "/_doc?pretty")
   post.addHeader("Content-Type", "application/json")
+  client.start()
 
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], new DateSerializer)
@@ -79,16 +87,14 @@ class ElasticRequestDataListener  extends RequestDataListener{
           logger.warn("Invalid JSON format. Proceeding anyways...")
       }
       post.setEntity(new StringEntity(json))
-      val response : CloseableHttpResponse = client.execute(post)
       try{
-        val entity = response.getEntity
-        val content = EntityUtils.toString(entity)
-        logger.info("Post Response: " + content)
-        println(content)
+        val future = client.execute(post, null)
+        val response = future.get();
+        logger.info("Post Response: " + response)
+        println(response)
       } finally {
-        response.close()
+        post.releaseConnection()
       }
-      // TODO: Switch to Async request.
     }
   }
 
