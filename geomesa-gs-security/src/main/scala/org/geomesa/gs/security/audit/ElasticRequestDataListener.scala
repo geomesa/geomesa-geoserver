@@ -12,31 +12,30 @@ import java.lang.reflect.Type
 import java.util.Date
 
 import com.google.gson._
-import org.apache.http.client.methods.{HttpPost}
+import com.typesafe.scalalogging.LazyLogging
+import org.apache.http.HttpResponse
 import org.apache.http.client.config.RequestConfig
-import org.apache.http.impl.nio.client.CloseableHttpAsyncClient
-import org.apache.http.impl.nio.client.HttpAsyncClients
+import org.apache.http.client.methods.HttpPost
+import org.apache.http.concurrent.FutureCallback
 import org.apache.http.entity.StringEntity
+import org.apache.http.impl.nio.client.{CloseableHttpAsyncClient, HttpAsyncClients}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
-import org.apache.logging.log4j.LogManager
 
 
-class ElasticRequestDataListener  extends RequestDataListener{
-  val logger = LogManager.getLogger(classOf[ElasticRequestDataListener])
+class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
 
 //  val client: CloseableHttpClient = HttpClients.createDefault
-  val requestConfig = RequestConfig.custom()
+  private val requestConfig = RequestConfig.custom()
     .setSocketTimeout(3000)
     .setConnectTimeout(3000).build();
   val client: CloseableHttpAsyncClient = HttpAsyncClients.custom()
     .setDefaultRequestConfig(requestConfig)
-    .build();
+    .build()
+  client.start()
+
   val host = sys.env.getOrElse("ELASTICSEARCH_HOST", null)
   val index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
-  var post = new HttpPost(host + "/" + index + "/_doc?pretty")
-  post.addHeader("Content-Type", "application/json")
-  client.start()
 
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], new DateSerializer)
@@ -73,30 +72,42 @@ class ElasticRequestDataListener  extends RequestDataListener{
   }
 
   private def writeToElasticsearch(requestData: RequestData) = {
+
+    val post = new HttpPost(host + "/" + index + "/_doc?pretty")
+    post.addHeader("Content-Type", "application/json")
+
     // 1. Skip over requests which do not have the resources set.
     // 2. Skip over failures without the endTime set.
     if (
       !requestData.getResources.isEmpty &&
       (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
     ) {
-      val json = gson.toJson(requestData)
-      try {
+      try{
+        val json = gson.toJson(requestData)
         gson.fromJson(json, classOf[Any])
+        post.setEntity(new StringEntity(json))
+        client.execute(post, new LoggingCallback)
       } catch {
         case ex: JsonSyntaxException =>
           logger.warn("Invalid JSON format. Proceeding anyways...")
-      }
-      post.setEntity(new StringEntity(json))
-      try{
-        val future = client.execute(post, null)
-        val response = future.get();
-        logger.info("Post Response: " + response)
-        println(response)
       } finally {
         post.releaseConnection()
       }
     }
   }
 
+  class LoggingCallback() extends FutureCallback[HttpResponse] with LazyLogging {
+    override def completed(result: HttpResponse): Unit = {
+      logger.info("Post Response: " + result)
+    }
+
+    override def failed(ex: Exception): Unit = {
+      logger.error("Post Error: " + ex)
+    }
+
+    override def cancelled(): Unit = {
+      logger.warn("Post cancelled")
+    }
+  }
   override def requestPostProcessed(requestData: RequestData): Unit = {}
 }
