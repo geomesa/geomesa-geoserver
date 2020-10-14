@@ -17,19 +17,23 @@ import org.apache.http.HttpResponse
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.concurrent.FutureCallback
+import org.apache.http.config.ConnectionConfig
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.nio.client.{CloseableHttpAsyncClient, HttpAsyncClients}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
+
+import scala.concurrent.Await
 
 
 class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
 
 //  val client: CloseableHttpClient = HttpClients.createDefault
   private val requestConfig = RequestConfig.custom()
-    .setSocketTimeout(3000)
-    .setConnectTimeout(3000).build();
+    .setSocketTimeout(10000)
+    .setConnectTimeout(10000).build();
   val client: CloseableHttpAsyncClient = HttpAsyncClients.custom()
+    .setMaxConnTotal(10)
     .setDefaultRequestConfig(requestConfig)
     .build()
   client.start()
@@ -91,14 +95,14 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
         case ex: JsonSyntaxException =>
           logger.warn("Invalid JSON format. Proceeding anyways...")
       } finally {
-        post.releaseConnection()
+
       }
     }
   }
 
   class LoggingCallback() extends FutureCallback[HttpResponse] with LazyLogging {
     override def completed(result: HttpResponse): Unit = {
-      logger.info("Post Response: " + result)
+      logger.info(" - \nPost Response: " + result.getStatusLine)
     }
 
     override def failed(ex: Exception): Unit = {
