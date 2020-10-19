@@ -15,9 +15,8 @@ import com.google.gson._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpResponse
 import org.apache.http.client.config.RequestConfig
-import org.apache.http.client.methods.HttpPost
+import org.apache.http.client.methods.{HttpPost}
 import org.apache.http.concurrent.FutureCallback
-import org.apache.http.config.ConnectionConfig
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.nio.client.{CloseableHttpAsyncClient, HttpAsyncClients}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
@@ -28,7 +27,6 @@ import scala.concurrent.Await
 
 class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
 
-//  val client: CloseableHttpClient = HttpClients.createDefault
   private val requestConfig = RequestConfig.custom()
     .setSocketTimeout(10000)
     .setConnectTimeout(10000).build();
@@ -90,7 +88,7 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
         val json = gson.toJson(requestData)
         gson.fromJson(json, classOf[Any])
         post.setEntity(new StringEntity(json))
-        client.execute(post, new LoggingCallback)
+        val future = (client.execute(post, new LoggingCallback(post)))
       } catch {
         case ex: JsonSyntaxException =>
           logger.warn("Invalid JSON format. Proceeding anyways...")
@@ -100,17 +98,21 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
     }
   }
 
-  class LoggingCallback() extends FutureCallback[HttpResponse] with LazyLogging {
+  class LoggingCallback(post : HttpPost) extends FutureCallback[HttpResponse] with LazyLogging {
     override def completed(result: HttpResponse): Unit = {
-      logger.info(" - \nPost Response: " + result.getStatusLine)
+      logger.info(" - Post Response: " + result.getStatusLine)
+      println(" - Post Response: " + result.getStatusLine)
+      post.releaseConnection()
     }
 
     override def failed(ex: Exception): Unit = {
       logger.error("Post Error: " + ex)
+      post.releaseConnection()
     }
 
     override def cancelled(): Unit = {
       logger.warn("Post cancelled")
+      post.releaseConnection()
     }
   }
   override def requestPostProcessed(requestData: RequestData): Unit = {}
