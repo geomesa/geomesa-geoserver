@@ -66,10 +66,10 @@
         <scala.version>2.11.7</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
 
-        <gs.version>2.17.0</gs.version>
-        <gt.version>23.0</gt.version>
-        <jts.version>1.16.0</jts.version>
-        <imageio-ext.version>1.2.1</imageio-ext.version>
+        <gs.version>2.17.3</gs.version>
+        <gt.version>23.3</gt.version>
+        <jts.version>1.17.0</jts.version>
+        <imageio-ext.version>1.3.2</imageio-ext.version>
         <guava.version>27.0-jre</guava.version>
         <wicket.version>7.6.0</wicket.version>
 
