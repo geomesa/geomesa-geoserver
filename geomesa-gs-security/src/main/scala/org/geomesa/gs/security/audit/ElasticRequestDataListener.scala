@@ -12,13 +12,19 @@ import java.lang.reflect.Type
 import java.util.Date
 
 import com.google.gson._
+import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
+import org.elasticsearch.action.ActionListener
 import org.elasticsearch.client.{RequestOptions, RestClient, RestHighLevelClient}
+import org.elasticsearch.action.index.{IndexRequest, IndexResponse}
+import org.elasticsearch.common.xcontent.XContentType
+import org.elasticsearch.action.DocWriteResponse
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
 
-// TODO externalize hostname:port in a constructor and sample applicationContext.xml
 class ElasticRequestDataListener extends RequestDataListener {
+  val host = sys.env.get("ELASTICSEARCH_HOST")
+  val index = sys.env.get("GEOSERVER_ES_INDEX")
   val client = new RestHighLevelClient(
     RestClient.builder(
       new HttpHost("localhost", 9200, "http")
@@ -55,7 +61,6 @@ class ElasticRequestDataListener extends RequestDataListener {
   }
 
   override def requestCompleted(requestData: RequestData): Unit = {
-    //writeToElasticsearch(requestData)
   }
 
   private def writeToElasticsearch(requestData: RequestData) = {
@@ -66,14 +71,32 @@ class ElasticRequestDataListener extends RequestDataListener {
       (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
     ) {
       val json = gson.toJson(requestData)
-      println(s"Request Data: \n$json")
-      import org.elasticsearch.action.index.IndexRequest
-      import org.elasticsearch.common.xcontent.XContentType
       val request = new IndexRequest("geoserver")
       request.id(s"${requestData.getId}:${requestData.getStartTime}")
       request.source(json, XContentType.JSON)
-      // TODO: Switch to Async request.
-      client.index(request, RequestOptions.DEFAULT)
+      client.indexAsync(request, RequestOptions.DEFAULT, new LoggingCallback())
+    }
+  }
+
+  class LoggingCallback() extends ActionListener[IndexResponse] with LazyLogging {
+    override def onResponse(index_response :IndexResponse): Unit = {
+      val index = index_response.getIndex
+      val id = index_response.getId
+      if (index_response.getResult eq DocWriteResponse.Result.CREATED) {
+        logger.debug("Request indexed in " + index + " with Id " + id)
+      }
+      val shardInfo = index_response.getShardInfo
+      if (shardInfo.getTotal != shardInfo.getSuccessful) {
+        logger.debug("Total shards do not match successful shards. Total: " + shardInfo.getTotal + " Successful: " + shardInfo.getSuccessful)
+      }
+      if (shardInfo.getFailed > 0) for (failure <- shardInfo.getFailures) {
+        val reason = failure.reason
+        logger.warn("Shard Failure: " + reason)
+      }
+    }
+
+    override def onFailure(ex: Exception): Unit = {
+      logger.error("Index request failed, caused by: " + ex)
     }
   }
 
