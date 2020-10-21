@@ -1,2 +1,0 @@
-mvn clean install dependency:copy-dependencies -DincludeScope=runtime -DexcludeScope=provided -pl geomesa-gs-security/
-will download most all the dependencies you may need.
