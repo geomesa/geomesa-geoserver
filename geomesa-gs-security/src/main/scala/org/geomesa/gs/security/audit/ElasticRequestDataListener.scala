@@ -27,9 +27,11 @@ import org.opengis.geometry.BoundingBox
 
 class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
   val strUrl = sys.env.getOrElse("ELASTICSEARCH_HOST", null)
-  var host : String = "localhost"
-  var port = 9200
-  var protocol : String = "http"
+  //initialized variables
+  var host : String = ""
+  var port = 0
+  var protocol : String = ""
+
   try {
     val url = new URL(strUrl)
     host = url.getHost
@@ -41,12 +43,13 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
       logger.error("Bad URL given. Could not resolve " + strUrl)
       throw new Exception("Given URL cannot be read by Java URL")
   }
-  val index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
   val client = new RestHighLevelClient(
     RestClient.builder(
       new HttpHost(host, port, protocol)
     )
   )
+  val index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
+  
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], DateSerializer)
     .registerTypeAdapter(classOf[BoundingBox], BoundingBoxSerializer)
