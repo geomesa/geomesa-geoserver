@@ -34,9 +34,6 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
     val url = new URL(strUrl)
     host = url.getHost
     port = url.getPort
-    if (port == -1){
-      port = url.getDefaultPort()
-    }
     protocol = url.getProtocol
   }
   catch {
