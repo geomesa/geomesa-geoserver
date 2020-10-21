@@ -49,7 +49,7 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
     )
   )
   val index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
-  
+
   private val gson: Gson = new GsonBuilder()
     .registerTypeAdapter(classOf[Date], DateSerializer)
     .registerTypeAdapter(classOf[BoundingBox], BoundingBoxSerializer)
@@ -92,7 +92,8 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
     ) {
       val json = gson.toJson(requestData)
       val request = new IndexRequest(index)
-      request.id(s"${requestData.getId}:${requestData.getStartTime}")
+      //request.id(s"${requestData.getId}:${requestData.getStartTime}")
+      //let es automatically assign an id value so there are no deleted shards due to duplication
       request.source(json, XContentType.JSON)
       client.indexAsync(request, RequestOptions.DEFAULT, new LoggingCallback())
     }
