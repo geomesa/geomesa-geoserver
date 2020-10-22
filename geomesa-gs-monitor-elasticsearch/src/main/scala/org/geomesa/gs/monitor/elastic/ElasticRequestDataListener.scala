@@ -6,7 +6,7 @@
  * https://opensource.org/licenses/GPL-2.0.
  ***********************************************************************/
 
-package org.geomesa.gs.security.audit
+package org.geomesa.gs.monitor.elastic
 
 import java.lang.reflect.Type
 import java.net.{MalformedURLException, URL}
@@ -23,33 +23,47 @@ import org.elasticsearch.action.DocWriteResponse
 import org.geoserver.monitor.{RequestData, RequestDataListener}
 import org.opengis.geometry.BoundingBox
 
+import scala.collection.mutable.ArrayBuffer
+
 
 
 class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
   import ElasticRequestDataListener.gson
-  val envVar = sys.env.getOrElse("ELASTICSEARCH_HOST", null)
+  val envVars = sys.env.getOrElse("ELASTICSEARCH_HOST", null).split(',')
   //initialized variables
   var host = ""
   var port = 0
   var protocol = ""
+  val hostList = new ArrayBuffer[HttpHost]
 
-  try {
-    val url = new URL(envVar)
-    host = url.getHost
-    port = url.getPort
-    protocol = url.getProtocol
+  for (u <- envVars) {
+    try {
+      val url = new URL(u.trim())
+      host = url.getHost
+      port = url.getPort
+      protocol = url.getProtocol
+      hostList.append(new HttpHost(host, port, protocol))
+    }
+    catch{
+      case e: MalformedURLException => logger.error("Invalid URL " + u + ". Could not convert from string to URL. Trying any additional URLs")
+    }
   }
-  catch {
-    case e: MalformedURLException =>
-      logger.error("Bad URL given. Could not resolve " + envVar)
-      throw new Exception("Given URL cannot be read by Java URL")
+  if (hostList.length == 0) {
+    logger.error("No URL given. Could not resolve " + envVars)
+    throw new Exception("Given URL(s) cannot be read by Java URL")
   }
+
+  val hosts = hostList.toArray
   val client = new RestHighLevelClient(
-    RestClient.builder(
-      new HttpHost(host, port, protocol)
-    )
+    RestClient.builder(hosts:_*)
   )
-  val index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
+  logger.debug("Sending requests to " + hosts)
+
+  var index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
+  if (index == null){
+    index = "geoserver"
+    logger.warn("No index name provided. Index will be set to default name 'geoserver'")
+  }
 
   override def requestStarted(requestData: RequestData): Unit = {}
 
@@ -57,8 +71,7 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
     writeToElasticsearch(requestData)
   }
 
-  override def requestCompleted(requestData: RequestData): Unit = {
-  }
+  override def requestCompleted(requestData: RequestData): Unit = {}
 
   private def writeToElasticsearch(requestData: RequestData) = {
     // 1. Skip over requests which do not have the resources set.

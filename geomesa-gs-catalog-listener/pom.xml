@@ -36,14 +36,6 @@
             <artifactId>accumulo-core</artifactId>
             <scope>provided</scope>
         </dependency>
-        <dependency>
-            <groupId>org.geoserver</groupId>
-            <artifactId>gs-main</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.geoserver</groupId>
-            <artifactId>gs-platform</artifactId>
-        </dependency>
     </dependencies>
 
     <build>

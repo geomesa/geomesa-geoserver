@@ -7,8 +7,8 @@
     </parent>
     <modelVersion>4.0.0</modelVersion>
 
-    <artifactId>geomesa-gs-security</artifactId>
-    <name>GeoMesa Security Geoserver Extension</name>
+    <artifactId>geomesa-gs-monitor-elasticsearch</artifactId>
+    <name>GeoMesa Elasticsearch Geoserver Monitor Extension</name>
 
     <dependencies>
         <dependency>

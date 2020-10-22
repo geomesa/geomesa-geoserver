@@ -54,7 +54,7 @@
 
     <modules>
         <module>geomesa-gs-catalog-listener</module>
-        <module>geomesa-gs-security</module>
+        <module>geomesa-gs-monitor-elasticsearch</module>
         <module>geomesa-gs-styling</module>
         <module>geomesa-gs-wfs</module>
     </modules>
@@ -103,14 +103,14 @@
             <groupId>org.scala-lang</groupId>
             <artifactId>scala-library</artifactId>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>org.geoserver</groupId>-->
-<!--            <artifactId>gs-main</artifactId>-->
-<!--        </dependency>-->
-<!--        <dependency>-->
-<!--            <groupId>org.geoserver</groupId>-->
-<!--            <artifactId>gs-platform</artifactId>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>org.geoserver</groupId>
+            <artifactId>gs-main</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.geoserver</groupId>
+            <artifactId>gs-platform</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.specs2</groupId>

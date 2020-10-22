@@ -4,7 +4,7 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
   <beans profile="elasticsearch">
-    <bean id="geomesaAuditor" class="org.geomesa.gs.security.audit.ElasticRequestDataListener">
+    <bean id="geomesaAuditor" class="org.geomesa.gs.monitor.elastic.ElasticRequestDataListener">
     </bean>
   </beans>
 
