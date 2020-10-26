@@ -29,7 +29,11 @@ import scala.collection.mutable.ArrayBuffer
 
 class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
   import ElasticRequestDataListener.gson
-  val envVars = sys.env.getOrElse("ELASTICSEARCH_HOST", null).split(',')
+  val envVars = sys.env.getOrElse("ELASTICSEARCH_HOST", "unset").split(',')
+  if(envVars(0) == "unset"){
+    logger.error("Environment variable ELASTICSEARCH_HOST is not set")
+    throw new Exception("Environment variable ELASTICSEARCH_HOST is not set. Stopping build.")
+  }
   //initialized variables
   var host = ""
   var port = 0
@@ -49,8 +53,8 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
     }
   }
   if (hostList.length == 0) {
-    logger.error("No URL given. Could not resolve " + envVars)
-    throw new Exception("Given URL(s) cannot be read by Java URL")
+    logger.error("No URL given. Could not resolve " + envVars.mkString(","))
+    throw new Exception("Given URL(s) " + envVars.mkString(",") + " cannot be read by Java URL")
   }
 
   val hosts = hostList.toArray
