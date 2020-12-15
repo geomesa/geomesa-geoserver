@@ -59,6 +59,7 @@
         <module>geomesa-gs-security</module>
         <module>geomesa-gs-styling</module>
         <module>geomesa-gs-wfs</module>
+        <module>geomesa-gs-monitor-elasticsearch</module>
     </modules>
 
     <properties>
@@ -69,7 +70,7 @@
         <scala.version>2.11.7</scala.version>
         <scala.binary.version>2.11</scala.binary.version>
 
-        <gs.version>2.14.0</gs.version>
+        <gs.version>2.14.2</gs.version>
         <gt.version>20.0</gt.version>
         <jts.version>1.16.0</jts.version>
         <imageio-ext.version>1.1.25</imageio-ext.version>
@@ -681,7 +682,7 @@
         </repository>
         <repository>
             <id>boundlessgeo</id>
-            <url>http://repo.boundlessgeo.com/main</url>
+            <url>https://repo.osgeo.org/repository/release/</url>
         </repository>
         <repository>
             <id>osgeo</id>
