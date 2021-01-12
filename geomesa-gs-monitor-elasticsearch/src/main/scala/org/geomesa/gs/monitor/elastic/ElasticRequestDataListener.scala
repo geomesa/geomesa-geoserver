@@ -81,8 +81,7 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
     // 1. Skip over requests which do not have the resources set.
     // 2. Skip over failures without the endTime set.
     if (
-      !requestData.getResources.isEmpty &&
-      (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
+      !requestData.getResources.isEmpty()
     ) {
       val json = gson.toJson(requestData)
       val request = new IndexRequest(index)
