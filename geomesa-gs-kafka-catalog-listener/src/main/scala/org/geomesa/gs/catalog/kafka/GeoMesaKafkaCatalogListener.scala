@@ -27,7 +27,7 @@ import scala.util.Try
  */
 class GeoMesaKafkaCatalogListener extends CatalogListener with InitializingBean with LazyLogging {
 
-  var catalog: Catalog = _
+  private var catalog: Catalog = _
 
   def setCatalog(catalog: Catalog): Unit = this.catalog = catalog
   def getCatalog: Catalog = this.catalog
