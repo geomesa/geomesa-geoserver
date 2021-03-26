@@ -36,7 +36,7 @@ class GeoMesaKafkaCatalogListener extends CatalogListener with InitializingBean 
     logger.debug("Starting Catalog crawl for existing GeoMesa layers.")
     catalog.addListener(this)
     crawlCatalog()
-    logger.debug(s"Finished Catalog crawl for existing GeoMesa layers, and added listener to catalog: $catalog.")
+    logger.debug(s"Added listener to catalog: $catalog.")
   }
 
   def crawlCatalog(): Unit = {
