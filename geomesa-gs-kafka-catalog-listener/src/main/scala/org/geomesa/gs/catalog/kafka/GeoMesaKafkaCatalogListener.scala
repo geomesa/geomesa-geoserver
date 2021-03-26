@@ -41,7 +41,10 @@ class GeoMesaKafkaCatalogListener extends CatalogListener with InitializingBean 
 
   def crawlCatalog(): Unit = {
     CachedThreadPool.execute(new Runnable {
-      override def run(): Unit = catalog.getFeatureTypes.foreach(addFeatureTypeInfo)
+      override def run(): Unit = {
+        catalog.getFeatureTypes.foreach(addFeatureTypeInfo)
+        logger.debug("Finished Catalog crawl for existing GeoMesa layers")
+      }
     })
   }
 
