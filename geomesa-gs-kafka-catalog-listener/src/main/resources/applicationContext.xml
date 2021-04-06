@@ -7,4 +7,6 @@
         <!-- geoserver catalog -->
         <property name="catalog" ref="catalog"/>
     </bean>
+
+    <bean id="geomesaKafkaLoadingStatus" class="org.geomesa.gs.catalog.kafka.GeoMesaKafkaLoadingStatus"/>
 </beans>
