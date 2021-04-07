@@ -12,6 +12,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>org.geoserver</groupId>
+            <artifactId>gs-rest</artifactId>
+            <version>${gs.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.locationtech.geomesa</groupId>
             <artifactId>geomesa-kafka-datastore_2.11</artifactId>
             <scope>provided</scope>
