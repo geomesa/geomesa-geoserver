@@ -33,7 +33,6 @@ class GeoMesaKafkaCatalogListener extends CatalogListener with InitializingBean 
   def getCatalog: Catalog = this.catalog
 
   override def afterPropertiesSet(): Unit = {
-    logger.debug("Starting Catalog crawl for existing GeoMesa layers.")
     catalog.addListener(this)
     crawlCatalog()
     logger.debug(s"Added listener to catalog: $catalog.")
@@ -42,6 +41,7 @@ class GeoMesaKafkaCatalogListener extends CatalogListener with InitializingBean 
   def crawlCatalog(): Unit = {
     CachedThreadPool.execute(new Runnable {
       override def run(): Unit = {
+        logger.debug("Starting Catalog crawl for existing GeoMesa layers.")
         catalog.getFeatureTypes.foreach(addFeatureTypeInfo)
         logger.debug("Finished Catalog crawl for existing GeoMesa layers")
       }
@@ -91,7 +91,9 @@ class GeoMesaKafkaCatalogListener extends CatalogListener with InitializingBean 
     logger.trace(s"GeoMesa Kafka Catalog Listener received modify event: $event")
   }
 
+  // I don't think this method is called on Catalog reload.
   override def reloaded(): Unit = {
     logger.trace(s"GeoMesa Kafka Catalog Listener received reloaded message.")
+    crawlCatalog
   }
 }
