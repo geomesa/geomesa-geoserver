@@ -14,3 +14,8 @@ with a non-zero readback.
 To understand more about initial loading in a Kafka DataStore, setting
 the log level for the `org.locationtech.geomesa.kafka.data` package
 to `INFO` can help.
+
+Limitations
+-----------
+
+On Catalog reload, Kafka DataStore layers will not be re-initialized.
