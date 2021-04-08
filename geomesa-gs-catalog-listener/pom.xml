@@ -13,17 +13,17 @@
     <dependencies>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-accumulo-datastore_2.11</artifactId>
+            <artifactId>geomesa-accumulo-datastore_${scala.binary.version}</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
-            <artifactId>geomesa-web-core_2.11</artifactId>
+            <artifactId>geomesa-web-core_${scala.binary.version}</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.typesafe.scala-logging</groupId>
-            <artifactId>scala-logging_2.11</artifactId>
+            <artifactId>scala-logging_${scala.binary.version}</artifactId>
             <scope>provided</scope>
         </dependency>
         <dependency>
