@@ -15,7 +15,7 @@ import org.springframework.http.{HttpStatus, MediaType}
 import org.springframework.web.bind.annotation.{GetMapping, RequestMapping, RestController}
 
 @RestController
-@RequestMapping(path = Array(RestBaseController.ROOT_PATH + "/kafka"),  produces = Array(MediaType.APPLICATION_JSON_VALUE))
+@RequestMapping(path = Array("/rest/kafka"),  produces = Array(MediaType.APPLICATION_JSON_VALUE))
 class KafkaLoaderStatusController extends RestBaseController with LazyLogging {
   @GetMapping
   def statusGet(): String = {
