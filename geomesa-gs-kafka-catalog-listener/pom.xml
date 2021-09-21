@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.geomesa.geoserver</groupId>
         <artifactId>geomesa-geoserver</artifactId>
-        <version>3.3.0</version>
+        <version>3.4.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>geomesa-gs-kafka-catalog-listener</artifactId>
