@@ -8,137 +8,72 @@
 
 package org.geomesa.gs.monitor.elastic
 
-import java.lang.reflect.Type
-import java.net.{MalformedURLException, URL}
-import java.util.Date
-
-import com.google.gson._
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
-import org.elasticsearch.action.ActionListener
-import org.elasticsearch.client.{RequestOptions, RestClient, RestHighLevelClient}
-import org.elasticsearch.action.index.{IndexRequest, IndexResponse}
-import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.action.DocWriteResponse
+import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
+import org.apache.http.impl.client.BasicCredentialsProvider
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
+import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
+import org.elasticsearch.client.{Request, RestClient}
 import org.geoserver.monitor.{RequestData, RequestDataListener}
-import org.opengis.geometry.BoundingBox
 
-import scala.collection.mutable.ArrayBuffer
-
-
+import scala.collection.JavaConverters._
 
 class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
-  import ElasticRequestDataListener.gson
-  val envVars = sys.env.getOrElse("ELASTICSEARCH_HOST", "unset").split(',')
-  if(envVars(0) == "unset"){
-    logger.error("Environment variable ELASTICSEARCH_HOST is not set")
-    throw new Exception("Environment variable ELASTICSEARCH_HOST is not set. Stopping build.")
-  }
-  //initialized variables
-  var host = ""
-  var port = 0
-  var protocol = ""
-  val hostList = new ArrayBuffer[HttpHost]
 
-  for (u <- envVars) {
-    try {
-      val url = new URL(u.trim())
-      host = url.getHost
-      port = url.getPort
-      protocol = url.getProtocol
-      hostList.append(new HttpHost(host, port, protocol))
+  import org.geomesa.gs.monitor.elastic.ElasticRequestDataListener._
+
+  private val config = ConfigFactory.load().getConfig(GEOSERVER_MONITOR_ELASTICSEARCH_KEY)
+  private val index = config.getString("index")
+  private val excludedFields =
+    if (config.hasPath("excludedFields")) {
+      config.getStringList("excludedFields").asScala.toSet
+    } else {
+      Set.empty[String]
     }
-    catch{
-      case e: MalformedURLException => logger.error("Invalid URL " + u + ". Could not convert from string to URL. Trying any additional URLs")
-    }
-  }
-  if (hostList.length == 0) {
-    logger.error("No URL given. Could not resolve " + envVars.mkString(","))
-    throw new Exception("Given URL(s) " + envVars.mkString(",") + " cannot be read by Java URL")
-  }
 
-  val hosts = hostList.toArray
-  val client = new RestHighLevelClient(
-    RestClient.builder(hosts:_*)
-  )
-  logger.debug("Sending requests to " + hosts)
-
-  var index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
-  if (index == null){
-    index = "geoserver"
-    logger.warn("No index name provided. Index will be set to default name 'geoserver'")
-  }
+  private val gson = ExtendedRequestData.getGson(excludedFields)
+  private val restClient = getRestClient(config)
 
   override def requestStarted(requestData: RequestData): Unit = {}
-
-  override def requestUpdated(requestData: RequestData): Unit = {
-    writeToElasticsearch(requestData)
-  }
-
+  override def requestUpdated(requestData: RequestData): Unit = {}
   override def requestCompleted(requestData: RequestData): Unit = {}
-
-  private def writeToElasticsearch(requestData: RequestData) = {
-    // 1. Skip over requests which do not have the resources set.
-    // 2. Skip over failures without the endTime set.
-    if (
-      !requestData.getResources.isEmpty &&
-      (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
-    ) {
-      val json = gson.toJson(requestData)
-      val request = new IndexRequest(index)
-      request.source(json, XContentType.JSON)
-      client.indexAsync(request, RequestOptions.DEFAULT, new LoggingCallback())
+  override def requestPostProcessed(requestData: RequestData): Unit = {
+    try {
+      writeElasticsearch(restClient, index, gson.toJson(ExtendedRequestData(requestData)))
+    } catch {
+      case ex: Exception => logger.error(s"Failed to write request to Elasticsearch: ${ex.getMessage}")
     }
   }
-
-  class LoggingCallback() extends ActionListener[IndexResponse] with LazyLogging {
-    override def onResponse(index_response :IndexResponse): Unit = {
-      val index = index_response.getIndex
-      val id = index_response.getId
-      if (index_response.getResult eq DocWriteResponse.Result.CREATED) {
-        logger.debug("Request indexed in " + index + " with Id " + id)
-      }
-      val shardInfo = index_response.getShardInfo
-      if (shardInfo.getTotal != shardInfo.getSuccessful) {
-        logger.debug("Total shards do not match successful shards. Total: " + shardInfo.getTotal + " Successful: " + shardInfo.getSuccessful)
-      }
-      if (shardInfo.getFailed > 0) for (failure <- shardInfo.getFailures) {
-        val reason = failure.reason
-        logger.warn("Shard Failure: " + reason)
-      }
-    }
-
-    override def onFailure(ex: Exception): Unit = {
-      logger.error("Index request failed, caused by: " + ex)
-    }
-  }
-
-  override def requestPostProcessed(requestData: RequestData): Unit = {}
 }
 
 object ElasticRequestDataListener {
-  private val gson: Gson = new GsonBuilder()
-    .registerTypeAdapter(classOf[Date], DateSerializer)
-    .registerTypeAdapter(classOf[BoundingBox], BoundingBoxSerializer)
-    .registerTypeAdapter(classOf[Throwable], ThrowableSerializer)
-    .serializeNulls().create()
 
-  object DateSerializer extends JsonSerializer[Date] {
-    override def serialize(src: Date, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
-      new JsonPrimitive(src.getTime)
-    }
+  val GEOSERVER_MONITOR_ELASTICSEARCH_KEY: String = "geomesa.geoserver.monitor.elasticsearch"
+
+  // TODO: Use `co.elastic.clients:elasticsearch-java` client API instead of low-level REST API
+  private def writeElasticsearch(client: RestClient, index: String, json: String): Unit = {
+    val request = new Request("POST", s"/$index/_doc")
+    request.setJsonEntity(json)
+    client.performRequest(request)
   }
 
-  object BoundingBoxSerializer extends JsonSerializer[BoundingBox] {
-    override def serialize(src: BoundingBox, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
-      new JsonPrimitive(src.toString)
-    }
-  }
+  private def getRestClient(config: Config): RestClient = {
+    val host = config.getString("host")
+    val port = config.getInt("port")
+    val user = config.getString("user")
+    val password = config.getString("password")
 
-  object ThrowableSerializer extends JsonSerializer[Throwable] {
-    override def serialize(src: Throwable, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
-      new JsonPrimitive(src.getMessage)
-    }
-  }
+    val credentialsProvider = new BasicCredentialsProvider
+    credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(user, password))
 
+    val clientBuilder = RestClient.builder(new HttpHost(host, port))
+      .setHttpClientConfigCallback(new HttpClientConfigCallback {
+        override def customizeHttpClient(httpClientBuilder: HttpAsyncClientBuilder): HttpAsyncClientBuilder =
+          httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
+      })
+
+    clientBuilder.build()
+  }
 }

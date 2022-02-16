@@ -405,6 +405,18 @@
                 </exclusions>
             </dependency>
             <dependency>
+                <groupId>org.geoserver.extension</groupId>
+                <artifactId>gs-monitor-core</artifactId>
+                <version>${gs.version}</version>
+                <scope>provided</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
                 <groupId>org.apache.wicket</groupId>
                 <artifactId>wicket-core</artifactId>
                 <version>${wicket.version}</version>
@@ -435,8 +447,20 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
+                <groupId>com.typesafe.scala-logging</groupId>
+                <artifactId>scala-logging_${scala.binary.version}</artifactId>
+                <version>${scalalogging.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
                 <version>${slf4j.version}</version>
                 <scope>provided</scope>
             </dependency>
