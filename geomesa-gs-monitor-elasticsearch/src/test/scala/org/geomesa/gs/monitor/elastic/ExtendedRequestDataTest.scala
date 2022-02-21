@@ -65,7 +65,7 @@ class ExtendedRequestDataTest extends Specification {
         val rd = new RequestData
         val erd = ExtendedRequestData(rd)
 
-        erd.queryCentroids.asScala must beEmpty
+        erd.queryCentroids must beNull
       }
 
       "when there is no cql filter start key" in {
@@ -74,7 +74,7 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        erd.queryCentroids.asScala must beEmpty
+        erd.queryCentroids must beNull
       }
 
       "when the cql filter cannot be parsed" in {
@@ -83,7 +83,7 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        erd.queryCentroids.asScala must beEmpty
+        erd.queryCentroids must beNull
       }
 
       "when there are no attributes in the query" in {
@@ -92,7 +92,7 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        erd.queryCentroids.asScala must beEmpty
+        erd.queryCentroids must beNull
       }
 
       "when there are no geometries in the query" in {
@@ -101,10 +101,10 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        erd.queryCentroids.asScala must beEmpty
+        erd.queryCentroids must beNull
       }
 
-      "when there query contains a polygon" in {
+      "when the query contains a polygon" in {
         val queryString = s"CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)"
         val rd = new RequestData
         rd.setQueryString(queryString)
@@ -213,7 +213,75 @@ class ExtendedRequestDataTest extends Specification {
       }
     }
 
+    "parse its distinguished name" >> {
+      "when the name is null" in {
+        val rd = new RequestData
+        val erd = ExtendedRequestData(rd)
+
+        erd.commonNames must beNull
+        erd.organizations must beNull
+        erd.organizationalUnits must beNull
+      }
+
+      "when the name is invalid" in {
+        val remoteUser = "(CN=foo)"
+        val rd = new RequestData
+        rd.setRemoteUser(remoteUser)
+        val erd = ExtendedRequestData(rd)
+
+        erd.commonNames must beNull
+        erd.organizations must beNull
+        erd.organizationalUnits must beNull
+      }
+
+      "when the name is valid" in {
+        val remoteUser = "CN=foo,O=bar,OU=baz,C=US"
+        val rd = new RequestData
+        rd.setRemoteUser(remoteUser)
+        val erd = ExtendedRequestData(rd)
+
+        val expectedCommonNames = List("foo")
+        val expectedOrganizations = List("bar")
+        val expectedOrganizationalUnits = List("baz")
+
+        erd.commonNames.asScala must containTheSameElementsAs(expectedCommonNames)
+        erd.organizations.asScala must containTheSameElementsAs(expectedOrganizations)
+        erd.organizationalUnits.asScala must containTheSameElementsAs(expectedOrganizationalUnits)
+      }
+
+      "when there are multiple organizational units" in {
+        val remoteUser = "OU=foo,C=US,CN=bar,OU=baz"
+        val rd = new RequestData
+        rd.setRemoteUser(remoteUser)
+        val erd = ExtendedRequestData(rd)
+
+        val expectedCommonNames = List("bar")
+        val expectedOrganizationalUnits = List("foo", "baz")
+
+        erd.commonNames.asScala must containTheSameElementsAs(expectedCommonNames)
+        erd.organizations must beNull
+        erd.organizationalUnits.asScala must containTheSameElementsAs(expectedOrganizationalUnits)
+      }
+
+      "when there are multiple common names" in {
+        val remoteUser = "CN=foo,CN=bar,CN=baz"
+        val rd = new RequestData
+        rd.setRemoteUser(remoteUser)
+        val erd = ExtendedRequestData(rd)
+
+        val expectedCommonNames = List("foo", "bar", "baz")
+
+        erd.commonNames.asScala must containTheSameElementsAs(expectedCommonNames)
+        erd.organizations must beNull
+        erd.organizationalUnits must beNull
+      }
+    }
+
     "serialize to JSON" >> {
+      val cn = "foo"
+      val o = "bar"
+      val ou = "baz"
+
       val bbox = new ReferencedEnvelope(-117.14141615693983, -117.19950166515697, 37.034726090346105, 37.09281159856325, CRS)
       val body = new String("body").getBytes(StandardCharsets.UTF_8)
       val bodyContentLength = new java.lang.Long(4)
@@ -223,6 +291,7 @@ class ExtendedRequestDataTest extends Specification {
       val host = "127.0.0.1"
       val httpMethod = "GET"
       val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_3)) OR (INTERSECTS (attr1, $POLYGON_5))"
+      val remoteUser = s"CN=$cn,O=$o,OU=$ou"
       val resources = List("foo:bar").asJava
       val responseStatus = new java.lang.Integer(200)
       val service = "WFS"
@@ -240,6 +309,7 @@ class ExtendedRequestDataTest extends Specification {
       rd.setHost(host)
       rd.setHttpMethod(httpMethod)
       rd.setQueryString(queryString)
+      rd.setRemoteUser(remoteUser)
       rd.setResources(resources)
       rd.setResponseStatus(responseStatus)
       rd.setService(service)
@@ -254,7 +324,7 @@ class ExtendedRequestDataTest extends Specification {
 
       val gson = ExtendedRequestData.getGson(excludedFields)
       val json = gson.toJson(erd)
-      val expectedJson = s"""{"failed":true,"bbox_centroid":"$BBOX_CENTROID","query_centroids":["$CENTROID_3","$CENTROID_5"],"status":"$status","category":"$category","query_string":"$queryString","body":"${new String(body, StandardCharsets.UTF_8)}","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"host":"$host","service":"$service","resources":${resources.asScala.mkString("[\"","\",\"","\"]")},"error":"${error.getMessage}","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
+      val expectedJson = s"""{"failed":${Option(error).isDefined},"bbox_centroid":"$BBOX_CENTROID","query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cn"],"organizations":["$o"],"organizational_units":["$ou"],"status":"$status","category":"$category","query_string":"$queryString","body":"${new String(body, StandardCharsets.UTF_8)}","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":${resources.asScala.mkString("[\"","\",\"","\"]")},"error":"${error.getMessage}","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
 
       json mustEqual expectedJson
     }
