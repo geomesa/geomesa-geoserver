@@ -60,6 +60,48 @@ class ExtendedRequestDataTest extends Specification {
       }
     }
 
+    "compute the attributes in its query string" >> {
+      "when the queryString is not set" in {
+        val rd = new RequestData
+        val erd = ExtendedRequestData(rd)
+
+        erd.queryAttributes must beNull
+      }
+
+      "when are no attributes" in {
+        val queryString = "CQL_FILTER=INCLUDE"
+        val rd = new RequestData
+        rd.setQueryString(queryString)
+        val erd = ExtendedRequestData(rd)
+
+        erd.queryAttributes must beNull
+      }
+
+      "when there is one unique attribute" in {
+        val queryString = "CQL_FILTER=attr1 LIKE 'foo'"
+        val rd = new RequestData
+        rd.setQueryString(queryString)
+        val erd = ExtendedRequestData(rd)
+
+        val expectedAttributes = Seq("attr1")
+        val attributes = erd.queryAttributes.asScala
+
+        expectedAttributes must containTheSameElementsAs(attributes)
+      }
+
+      "when there are multiple unique attributes" in {
+        val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_1)) AND (INTERSECTS (attr2, $POLYGON_2))"
+        val rd = new RequestData
+        rd.setQueryString(queryString)
+        val erd = ExtendedRequestData(rd)
+
+        val expectedAttributes = Seq("attr1", "attr2")
+        val attributes = erd.queryAttributes.asScala
+
+        expectedAttributes must containTheSameElementsAs(attributes)
+      }
+    }
+
     "compute the centroids of the geometries in its query string" >> {
       "when the queryString is not set" in {
         val rd = new RequestData
@@ -110,8 +152,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_1).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_1)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -122,8 +164,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_1).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_1)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -134,8 +176,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_1).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_1)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -146,8 +188,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(BBOX_CENTROID).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(BBOX_CENTROID)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -158,8 +200,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_1, CENTROID_2).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_1, CENTROID_2)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -170,8 +212,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_2).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_2)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -182,8 +224,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_3_AND_4).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_3_AND_4)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -194,8 +236,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_3, CENTROID_5).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_3, CENTROID_5)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -206,8 +248,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
-        val expectedWkts = List(CENTROID_6).asJava
-        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write).asJava
+        val expectedWkts = Seq(CENTROID_6)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
 
         wkts mustEqual expectedWkts
       }
@@ -240,9 +282,9 @@ class ExtendedRequestDataTest extends Specification {
         rd.setRemoteUser(remoteUser)
         val erd = ExtendedRequestData(rd)
 
-        val expectedCommonNames = List("foo")
-        val expectedOrganizations = List("bar")
-        val expectedOrganizationalUnits = List("baz")
+        val expectedCommonNames = Seq("foo")
+        val expectedOrganizations = Seq("bar")
+        val expectedOrganizationalUnits = Seq("baz")
 
         erd.commonNames.asScala must containTheSameElementsAs(expectedCommonNames)
         erd.organizations.asScala must containTheSameElementsAs(expectedOrganizations)
@@ -255,8 +297,8 @@ class ExtendedRequestDataTest extends Specification {
         rd.setRemoteUser(remoteUser)
         val erd = ExtendedRequestData(rd)
 
-        val expectedCommonNames = List("bar")
-        val expectedOrganizationalUnits = List("foo", "baz")
+        val expectedCommonNames = Seq("bar")
+        val expectedOrganizationalUnits = Seq("foo", "baz")
 
         erd.commonNames.asScala must containTheSameElementsAs(expectedCommonNames)
         erd.organizations must beNull
@@ -269,7 +311,7 @@ class ExtendedRequestDataTest extends Specification {
         rd.setRemoteUser(remoteUser)
         val erd = ExtendedRequestData(rd)
 
-        val expectedCommonNames = List("foo", "bar", "baz")
+        val expectedCommonNames = Seq("foo", "bar", "baz")
 
         erd.commonNames.asScala must containTheSameElementsAs(expectedCommonNames)
         erd.organizations must beNull
@@ -278,21 +320,25 @@ class ExtendedRequestDataTest extends Specification {
     }
 
     "serialize to JSON" >> {
-      val cn = "foo"
-      val o = "bar"
-      val ou = "baz"
+      val bodyStr = "body"
+      val errorStr = "error"
+      val attrStr = "attr1"
+      val cnStr = "foo"
+      val oStr = "bar"
+      val ouStr = "baz"
+      val resourceStr = "foo:bar"
 
       val bbox = new ReferencedEnvelope(-117.14141615693983, -117.19950166515697, 37.034726090346105, 37.09281159856325, CRS)
-      val body = new String("body").getBytes(StandardCharsets.UTF_8)
+      val body = new String(bodyStr).getBytes(StandardCharsets.UTF_8)
       val bodyContentLength = new java.lang.Long(4)
       val category = RequestData.Category.REST
       val endTime = new Date(1645048281995L)
-      val error = new UnsupportedOperationException("error")
+      val error = new UnsupportedOperationException(errorStr)
       val host = "127.0.0.1"
       val httpMethod = "GET"
-      val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_3)) OR (INTERSECTS (attr1, $POLYGON_5))"
-      val remoteUser = s"CN=$cn,O=$o,OU=$ou"
-      val resources = List("foo:bar").asJava
+      val queryString = s"CQL_FILTER=(INTERSECTS ($attrStr, $POLYGON_3)) OR (INTERSECTS ($attrStr, $POLYGON_5))"
+      val remoteUser = s"CN=$cnStr,O=$oStr,OU=$ouStr"
+      val resources = Seq(resourceStr)
       val responseStatus = new java.lang.Integer(200)
       val service = "WFS"
       val startTime = new Date(1645048277230L)
@@ -310,7 +356,7 @@ class ExtendedRequestDataTest extends Specification {
       rd.setHttpMethod(httpMethod)
       rd.setQueryString(queryString)
       rd.setRemoteUser(remoteUser)
-      rd.setResources(resources)
+      rd.setResources(resources.asJava)
       rd.setResponseStatus(responseStatus)
       rd.setService(service)
       rd.setStartTime(startTime)
@@ -324,7 +370,7 @@ class ExtendedRequestDataTest extends Specification {
 
       val gson = ExtendedRequestData.getGson(excludedFields)
       val json = gson.toJson(erd)
-      val expectedJson = s"""{"failed":${Option(error).isDefined},"bbox_centroid":"$BBOX_CENTROID","query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cn"],"organizations":["$o"],"organizational_units":["$ou"],"status":"$status","category":"$category","query_string":"$queryString","body":"${new String(body, StandardCharsets.UTF_8)}","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":${resources.asScala.mkString("[\"","\",\"","\"]")},"error":"${error.getMessage}","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
+      val expectedJson = s"""{"failed":${Option(error).isDefined},"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
 
       json mustEqual expectedJson
     }
@@ -333,7 +379,7 @@ class ExtendedRequestDataTest extends Specification {
 
 object ExtendedRequestDataTest {
 
-  private val WKT_WRITER = new WKTWriter()
+  private val WKT_WRITER = new WKTWriter
   private val CRS = DefaultGeographicCRS.WGS84
 
   private val POLYGON_1 = "POLYGON ((120 35, 120 40, 115 40, 115 35, 120 35))"

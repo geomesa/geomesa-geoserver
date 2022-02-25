@@ -44,14 +44,24 @@ class ExtendedRequestData(requestData: RequestData) extends RequestData {
       .map(_.getCentroid)
       .orNull
 
-  val queryCentroids: java.util.List[Point] =
+  @transient
+  private val queryFilter: Option[Filter] =
     Option(requestData.getQueryString)
       .flatMap(extractCqlFilter)
+
+  val queryAttributes: java.util.List[String] =
+    queryFilter
+      .map(FilterHelper.propertyNames)
+      .asNonEmptyJavaListOrNull
+
+  val queryCentroids: java.util.List[Point] =
+    queryFilter
       .map(extractFilterCentroids)
       .asNonEmptyJavaListOrNull
 
   @transient
-  private val distinguishedName: Option[LdapName] = extractDistinguishedName(requestData.getRemoteUser)
+  private val distinguishedName: Option[LdapName] =
+    extractDistinguishedName(requestData.getRemoteUser)
 
   val commonNames: java.util.List[String] =
     distinguishedName
@@ -79,7 +89,7 @@ object ExtendedRequestData extends LazyLogging {
   def getGson(excludedFields: Set[String]): Gson = {
     new GsonBuilder()
       .registerTypeAdapter(classOf[Point], new JsonSerializer[Point] {
-        private val WKT_WRITER = new WKTWriter()
+        private val WKT_WRITER = new WKTWriter
         override def serialize(point: Point, `type`: Type, context: JsonSerializationContext): JsonElement = {
           new JsonPrimitive(WKT_WRITER.write(point))
         }
@@ -101,7 +111,7 @@ object ExtendedRequestData extends LazyLogging {
       })
       .registerTypeAdapter(classOf[Array[Byte]], new JsonSerializer[Array[Byte]] {
         override def serialize(array: Array[Byte], `type`: Type, context: JsonSerializationContext): JsonElement = {
-          new JsonPrimitive(Option(array).map(bytes => new String(bytes, StandardCharsets.UTF_8)).getOrElse(new String))
+          new JsonPrimitive(Option(array).map(new String(_, StandardCharsets.UTF_8)).getOrElse(new String))
         }
       })
       .addSerializationExclusionStrategy(new ExclusionStrategy {
@@ -111,13 +121,13 @@ object ExtendedRequestData extends LazyLogging {
         }
       })
       .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
-      .disableHtmlEscaping()
-      .create()
+      .disableHtmlEscaping
+      .create
   }
 
   private def extractFilterCentroids(filter: Filter): Seq[Point] = {
-    FilterHelper.propertyNames(filter).flatMap { attribute =>
-      FilterHelper.extractGeometries(filter, attribute).values.map(_.getCentroid)
+    FilterHelper.propertyNames(filter).flatMap {
+      FilterHelper.extractGeometries(filter, _).values.map(_.getCentroid)
     }
   }
 
@@ -126,10 +136,9 @@ object ExtendedRequestData extends LazyLogging {
     if (filterStartKeyIdx < 0) return None
 
     val filterStartIdx = filterStartKeyIdx + StringUtils.length(CQL_FILTER_START_KEY)
-    val filterStart = queryString.substring(filterStartIdx)
-    val filterEndKeyIdx = StringUtils.indexOfIgnoreCase(filterStart, CQL_FILTER_END_KEY)
-    val filterEndIdx = if (filterEndKeyIdx < 0) filterStart.length else filterEndKeyIdx
-    val filterString = filterStart.substring(0, filterEndIdx)
+    val filterEndKeyIdx = StringUtils.indexOfIgnoreCase(queryString, CQL_FILTER_END_KEY)
+    val filterEndIdx = if (filterEndKeyIdx < 0) StringUtils.length(queryString) else filterEndKeyIdx
+    val filterString = queryString.substring(filterStartIdx, filterEndIdx)
 
     Try(ECQL.toFilter(filterString)).orLog { ex =>
       s"Failed to parse filter from '$queryString': ${ex.getMessage}"
@@ -144,9 +153,8 @@ object ExtendedRequestData extends LazyLogging {
     }
   }
 
-  private def extractRdnValues(dn: LdapName, key: String): Seq[String] = {
+  private def extractRdnValues(dn: LdapName, key: String): Seq[String] =
     dn.getRdns.asScala.filter(_.getType.equalsIgnoreCase(key)).map(_.getValue.toString)
-  }
 
   private implicit class TryExtensions[T](result: Try[T]) {
     def orLog(getMessage: => Throwable => String = ex => ex.getMessage): Option[T] = {

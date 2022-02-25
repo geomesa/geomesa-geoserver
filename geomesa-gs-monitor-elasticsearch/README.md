@@ -12,6 +12,7 @@ separated by underscores.
 Additionally, some extra fields are computed from the request:
   * `failed` – whether the request's `error` field is populated
   * `bboxCentroid` – the centroid of the request's `bbox` field
+  * `queryAttributes` – a list of attributes from the request's `queryString` field
   * `queryCentroids` – a list of centroids for each geometry in the request's `queryString` field
   * `commonNames` – a list of the `CN` values in the request's `remoteUser` field
   * `organizations` – a list of the `O` values in the request's `remoteUser` field

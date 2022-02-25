@@ -24,7 +24,7 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
 
   import org.geomesa.gs.monitor.elastic.ElasticRequestDataListener._
 
-  private val config = ConfigFactory.load().getConfig(GEOSERVER_MONITOR_ELASTICSEARCH_KEY)
+  private val config = ConfigFactory.load.getConfig(GEOSERVER_MONITOR_ELASTICSEARCH_KEY)
   private val index = config.getString("index")
   private val excludedFields =
     if (config.hasPath("excludedFields")) {
@@ -41,23 +41,23 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
   override def requestCompleted(requestData: RequestData): Unit = {}
   override def requestPostProcessed(requestData: RequestData): Unit = {
     try {
-      writeElasticsearch(restClient, index, gson.toJson(ExtendedRequestData(requestData)))
+      writeElasticsearch(restClient, index, ExtendedRequestData(requestData))
     } catch {
       case ex: Exception => logger.error(s"Failed to write request to Elasticsearch: ${ex.getMessage}")
     }
+  }
+
+  // TODO: Use `co.elastic.clients:elasticsearch-java` client API instead of low-level REST API
+  private def writeElasticsearch(client: RestClient, index: String, requestData: RequestData): Unit = {
+    val request = new Request("POST", s"/$index/_doc")
+    request.setJsonEntity(gson.toJson(requestData))
+    client.performRequest(request)
   }
 }
 
 object ElasticRequestDataListener {
 
-  val GEOSERVER_MONITOR_ELASTICSEARCH_KEY: String = "geomesa.geoserver.monitor.elasticsearch"
-
-  // TODO: Use `co.elastic.clients:elasticsearch-java` client API instead of low-level REST API
-  private def writeElasticsearch(client: RestClient, index: String, json: String): Unit = {
-    val request = new Request("POST", s"/$index/_doc")
-    request.setJsonEntity(json)
-    client.performRequest(request)
-  }
+  val GEOSERVER_MONITOR_ELASTICSEARCH_KEY = "geomesa.geoserver.monitor.elasticsearch"
 
   private def getRestClient(config: Config): RestClient = {
     val host = config.getString("host")
@@ -74,6 +74,6 @@ object ElasticRequestDataListener {
           httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
       })
 
-    clientBuilder.build()
+    clientBuilder.build
   }
 }
