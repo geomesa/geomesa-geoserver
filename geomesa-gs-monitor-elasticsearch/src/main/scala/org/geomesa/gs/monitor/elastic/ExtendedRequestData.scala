@@ -61,7 +61,8 @@ class ExtendedRequestData(requestData: RequestData) extends RequestData {
 
   @transient
   private val distinguishedName: Option[LdapName] =
-    extractDistinguishedName(requestData.getRemoteUser)
+    Option(requestData.getRemoteUser)
+      .flatMap(extractDistinguishedName)
 
   val commonNames: java.util.List[String] =
     distinguishedName
@@ -90,6 +91,7 @@ object ExtendedRequestData extends LazyLogging {
     new GsonBuilder()
       .registerTypeAdapter(classOf[Point], new JsonSerializer[Point] {
         private val WKT_WRITER = new WKTWriter
+
         override def serialize(point: Point, `type`: Type, context: JsonSerializationContext): JsonElement = {
           new JsonPrimitive(WKT_WRITER.write(point))
         }
@@ -116,6 +118,7 @@ object ExtendedRequestData extends LazyLogging {
       })
       .addSerializationExclusionStrategy(new ExclusionStrategy {
         override def shouldSkipClass(`class`: Class[_]): Boolean = false
+
         override def shouldSkipField(fieldAttributes: FieldAttributes): Boolean = {
           excludedFields.contains(fieldAttributes.getName)
         }
@@ -136,9 +139,9 @@ object ExtendedRequestData extends LazyLogging {
     if (filterStartKeyIdx < 0) return None
 
     val filterStartIdx = filterStartKeyIdx + StringUtils.length(CQL_FILTER_START_KEY)
-    val filterEndKeyIdx = StringUtils.indexOfIgnoreCase(queryString, CQL_FILTER_END_KEY)
-    val filterEndIdx = if (filterEndKeyIdx < 0) StringUtils.length(queryString) else filterEndKeyIdx
-    val filterString = queryString.substring(filterStartIdx, filterEndIdx)
+    val filterStart = queryString.substring(filterStartIdx)
+    val filterEndKeyIdx = StringUtils.indexOfIgnoreCase(filterStart, CQL_FILTER_END_KEY)
+    val filterString = if (filterEndKeyIdx < 0) filterStart else filterStart.substring(0, filterEndKeyIdx)
 
     Try(ECQL.toFilter(filterString)).orLog { ex =>
       s"Failed to parse filter from '$queryString': ${ex.getMessage}"
@@ -146,10 +149,8 @@ object ExtendedRequestData extends LazyLogging {
   }
 
   private def extractDistinguishedName(dnString: String): Option[LdapName] = {
-    Option(dnString).flatMap { str =>
-      Try(new LdapName(str)).orLog { ex =>
-        s"Failed to parse distinguished name from '$dnString': ${ex.getMessage}"
-      }
+    Try(new LdapName(dnString)).orLog { ex =>
+      s"Failed to parse distinguished name from '$dnString': ${ex.getMessage}"
     }
   }
 

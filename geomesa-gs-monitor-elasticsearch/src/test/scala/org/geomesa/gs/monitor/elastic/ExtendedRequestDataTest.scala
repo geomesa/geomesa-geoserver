@@ -128,6 +128,18 @@ class ExtendedRequestDataTest extends Specification {
         erd.queryCentroids must beNull
       }
 
+      "when the cql filter end key appears before the start key" in {
+        val queryString = s"query&CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)"
+        val rd = new RequestData
+        rd.setQueryString(queryString)
+        val erd = ExtendedRequestData(rd)
+
+        val expectedWkts = Seq(CENTROID_1)
+        val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
+
+        wkts mustEqual expectedWkts
+      }
+
       "when there are no attributes in the query" in {
         val queryString = "CQL_FILTER=INCLUDE"
         val rd = new RequestData
