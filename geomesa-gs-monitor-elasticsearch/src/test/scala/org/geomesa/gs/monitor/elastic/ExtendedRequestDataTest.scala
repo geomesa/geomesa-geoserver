@@ -24,14 +24,14 @@ class ExtendedRequestDataTest extends Specification {
   "ExtendedRequestData" should {
     "set its failure status" >> {
       "when there is no error" in {
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         val erd = ExtendedRequestData(rd)
 
         Boolean.unbox(erd.failed) must beFalse
       }
 
       "when there is an error" in {
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setError(new UnsupportedOperationException("error"))
         val erd = ExtendedRequestData(rd)
 
@@ -41,7 +41,7 @@ class ExtendedRequestDataTest extends Specification {
 
     "compute the centroid of its bbox" >> {
       "when the bbox is not set" in {
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         val erd = ExtendedRequestData(rd)
 
         erd.bboxCentroid must beNull
@@ -49,7 +49,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the bbox is set" in {
         val bbox = new ReferencedEnvelope(-117.14141615693983, -117.19950166515697, 37.034726090346105, 37.09281159856325, CRS)
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setBbox(bbox)
         val erd = ExtendedRequestData(rd)
 
@@ -62,7 +62,7 @@ class ExtendedRequestDataTest extends Specification {
 
     "compute the attributes in its query string" >> {
       "when the queryString is not set" in {
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         val erd = ExtendedRequestData(rd)
 
         erd.queryAttributes must beNull
@@ -70,7 +70,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when are no attributes" in {
         val queryString = "CQL_FILTER=INCLUDE"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -79,7 +79,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when there is one unique attribute" in {
         val queryString = "CQL_FILTER=attr1 LIKE 'foo'"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -91,7 +91,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when there are multiple unique attributes" in {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_1)) AND (INTERSECTS (attr2, $POLYGON_2))"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -104,7 +104,7 @@ class ExtendedRequestDataTest extends Specification {
 
     "compute the centroids of the geometries in its query string" >> {
       "when the queryString is not set" in {
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         val erd = ExtendedRequestData(rd)
 
         erd.queryCentroids must beNull
@@ -112,7 +112,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when there is no cql filter start key" in {
         val queryString = s"INTERSECTS (attr1, $POLYGON_1)"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -121,7 +121,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the cql filter cannot be parsed" in {
         val queryString = s"CQL_FILTER=INTERSECTS (attr2, $POLYGON_2);service=WFS;srsName=EPSG:4326"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -130,7 +130,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the cql filter end key appears before the start key" in {
         val queryString = s"query&CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -142,7 +142,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when there are no attributes in the query" in {
         val queryString = "CQL_FILTER=INCLUDE"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -151,7 +151,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when there are no geometries in the query" in {
         val queryString = "CQL_FILTER=attr1 LIKE 'foo'"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -160,7 +160,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains a polygon" in {
         val queryString = s"CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -172,7 +172,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the cql filter start key is lower case" in {
         val queryString = s"cql_filter=INTERSECTS (attr1, $POLYGON_1)"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -184,7 +184,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains metadata" in {
         val queryString = s"CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)&service=WFS&srsName=EPSG:4326"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -196,7 +196,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains a bbox" in {
         val queryString = "CQL_FILTER=BBOX (attr1, -117.14141615693983, 37.034726090346105, -117.19950166515697, 37.09281159856325)"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -208,7 +208,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains two attributes" in {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_1)) AND (INTERSECTS (attr2, $POLYGON_2))"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -220,7 +220,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains two AND'd polygons, where one is encapsulated" in {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_1)) AND (INTERSECTS (attr1, $POLYGON_2))"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -232,7 +232,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains two AND'd polygons, where they are intersecting" in {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_3)) AND (INTERSECTS (attr1, $POLYGON_4))"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -244,7 +244,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains two OR'd polygons, where they are nonconvergent" in {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_3)) OR (INTERSECTS (attr1, $POLYGON_5))"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -256,7 +256,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the query contains a polygon AND'd with a bbox" in {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_6)) AND (BBOX (attr1, -97.04690330744837, 32.904622353605006, -97.04664673865905, 32.90487892239433))&"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setQueryString(queryString)
         val erd = ExtendedRequestData(rd)
 
@@ -269,7 +269,7 @@ class ExtendedRequestDataTest extends Specification {
 
     "parse its distinguished name" >> {
       "when the name is null" in {
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         val erd = ExtendedRequestData(rd)
 
         erd.commonNames must beNull
@@ -279,7 +279,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the name is invalid" in {
         val remoteUser = "(CN=foo)"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setRemoteUser(remoteUser)
         val erd = ExtendedRequestData(rd)
 
@@ -290,7 +290,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when the name is valid" in {
         val remoteUser = "CN=foo,O=bar,OU=baz,C=US"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setRemoteUser(remoteUser)
         val erd = ExtendedRequestData(rd)
 
@@ -305,7 +305,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when there are multiple organizational units" in {
         val remoteUser = "OU=foo,C=US,CN=bar,OU=baz"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setRemoteUser(remoteUser)
         val erd = ExtendedRequestData(rd)
 
@@ -319,7 +319,7 @@ class ExtendedRequestDataTest extends Specification {
 
       "when there are multiple common names" in {
         val remoteUser = "CN=foo,CN=bar,CN=baz"
-        val rd = new RequestData
+        val rd = new org.geoserver.monitor.RequestData
         rd.setRemoteUser(remoteUser)
         val erd = ExtendedRequestData(rd)
 
@@ -357,7 +357,7 @@ class ExtendedRequestDataTest extends Specification {
       val status = RequestData.Status.FINISHED
       val totalTime = new java.lang.Long(4765)
 
-      val rd = new RequestData
+      val rd = new org.geoserver.monitor.RequestData
       rd.setBbox(bbox)
       rd.setBody(body)
       rd.setBodyContentLength(bodyContentLength)

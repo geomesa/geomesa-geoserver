@@ -31,12 +31,14 @@ You must enable the `elasticsearch` profile in your `spring.profiles.active` con
 
 The plugin reads from a Typesafe Config file, `application.conf`, under the key
 `geomesa.geoserver.monitor.elasticsearch`:
-  * `host` – The host of the Elasticsearch instance
-  * `port` – The port of the Elasticsearch instance
-  * `user` – Your Elastic username
-  * `password` – Your Elastic password
-  * `index` – The index to write requests to
-  * `excludedFields` – A list of fields names that should not be written to Elasticsearch, default is none
+  * `host` – Host of Elasticsearch instance
+  * `port` – Port of Elasticsearch instance
+  * `user` – Elasticsearch username
+  * `password` – Elasticsearch password
+  * `index` – Index to write requests to
+  * `timeout` – Milliseconds after which incomplete requests should be considered failed and written to Elasticsearch,
+                requests that complete after this time has elapsed will be updated in the index
+  * `excludedFields` – List of fields names that should not be written to Elasticsearch, default is none
                        (these field names should match those of the Java object)
 
 ##### Sample Config
