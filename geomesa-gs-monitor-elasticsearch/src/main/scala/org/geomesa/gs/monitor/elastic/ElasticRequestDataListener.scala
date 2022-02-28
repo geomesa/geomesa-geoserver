@@ -19,7 +19,7 @@ import org.elasticsearch.client.{Request, RestClient}
 import org.geoserver.monitor.RequestData.Status
 import org.geoserver.monitor.RequestDataListener
 
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.TimeoutException
@@ -30,115 +30,139 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
 
   private val config = ConfigFactory.load.getConfig(GEOSERVER_MONITOR_ELASTICSEARCH_KEY)
   private val index = config.getString("index")
+
   private val excludedFields =
-    if (config.hasPath("excludedFields")) {
-      config.getStringList("excludedFields").asScala.toSet
-    } else {
-      Set.empty[String]
-    }
+    Option("excludedFields")
+      .filter(config.hasPath)
+      .map(config.getStringList)
+      .map(_.asScala.toSet)
+      .getOrElse(Set.empty)
+  private val timeout =
+    Option("timeout")
+      .filter(config.hasPath)
+      .map(config.getLong)
+      .filter(m => m > 1000L && m < 1000000L)
+      .getOrElse(10000L)
 
   private val gson = ExtendedRequestData.getGson(excludedFields)
   private val restClient = getRestClient(config)
 
   /*
-   * GeoServer Request Timeout Strategy
+   * GeoServer Request Monitor Timeout Strategy
    *
    * If a request times out, it never reaches the completed or post-processed callbacks and thus
-   * would never be sent to Elasticsearch. To combat this, all requests that are in progress are
-   * stored in a set ordered by their start time. Whenever a request is post-processed, it is sent
-   * to Elasticsearch and removed from the set. Any in-progress requests that have exceeded the
-   * configured timeout are marked as failed and sent to Elasticsearch. If a request completes
-   * after it has already been marked as a timeout, the Elasticsearch index is updated using the
-   * request id.
+   * would never be sent to Elasticsearch. To combat this, all in-progress requests are stored
+   * in a set ordered by their start time. Whenever a request is post-processed, it is sent to
+   * Elasticsearch and removed from the set. Any in-progress requests that exceed the configured
+   * timeout are marked as failed and sent to Elasticsearch. If a request completes after it has
+   * already been marked as a timeout, the Elasticsearch index is updated using the request id.
    */
 
-  private val requestTimeout =
-    if (config.hasPath("timeout")) {
-      config.getLong("timeout")
-    } else {
-      10000L
+  private val writeQueue = new LinkedBlockingQueue[RequestData]
+  private val requestsInProgress = new mutable.TreeSet[RequestData]()(new Ordering[RequestData] {
+    override def compare(rd: RequestData, rd1: RequestData): Int = {
+      rd1.getStartTime.getTime.compare(rd.getStartTime.getTime)
     }
+  })
 
-  private implicit val requestOrdering: Ordering[RequestData] = new Ordering[RequestData] {
-    override def compare(rd: RequestData, rd0: RequestData): Int = {
-      rd.getStartTime.getTime.compare(rd0.getStartTime.getTime)
-    }
-  }
-  private val requestsInProgress = mutable.TreeSet.empty
-
-  private val handleTimeouts = new Runnable {
+  private val elasticsearchWriter = new Runnable {
     override def run(): Unit = {
-      val timedOutRequests = new mutable.ArrayBuffer[RequestData]
-
-      // don't read in-progress requests while they are being updated
-      ElasticRequestDataListener.this.synchronized {
-        val currentMillis = System.currentTimeMillis
-        timedOutRequests ++= requestsInProgress.takeWhile(_.getStartTime.getTime + requestTimeout > currentMillis)
-      }
-
-      // send any timed-out requests to Elasticsearch as failures
-      timedOutRequests.foreach { rd =>
-        val ex = new TimeoutException("TIMEOUT")
-        rd.setStatus(Status.FAILED)
-        rd.setError(ex)
-        rd.setErrorMessage(ex.getMessage)
-
+      while (!Thread.interrupted) {
         try {
-          putElasticsearch(restClient, index, ExtendedRequestData(rd))
+          val requests = new java.util.ArrayList[RequestData]
+          writeQueue.drainTo(requests)
+
+          requests.asScala.foreach { rd =>
+            try {
+              putElasticsearch(new ExtendedRequestData(rd))
+            } catch {
+              case ex: Exception => logger.error(s"Failed to write request to Elasticsearch: ${ex.getMessage}")
+            }
+          }
         } catch {
-          case ex: Exception => logger.error(s"Failed to write request to Elasticsearch: ${ex.getMessage}")
+          case ex: Exception => logger.debug("Elasticsearch writer process encountered an error", ex)
         }
       }
     }
   }
 
-  private val timeoutExecutor = Executors.newSingleThreadScheduledExecutor()
-  timeoutExecutor.scheduleAtFixedRate(handleTimeouts, 2000, 2000, TimeUnit.MILLISECONDS)
+  private val timeoutHandler = new Runnable {
+    override def run(): Unit = {
+      try {
+        // don't read in-progress requests while they are being updated to maintain ordering
+        requestsInProgress.synchronized {
+          val currentMillis = System.currentTimeMillis
+          val timedOutRequests = requestsInProgress.takeWhile(_.getStartTime.getTime + timeout > currentMillis)
+
+          // stop tracking timed-out requests
+          requestsInProgress --= timedOutRequests
+
+          // mark timed-out requests as failures
+          timedOutRequests.foreach { rd =>
+            val ex = new TimeoutException("TIMEOUT")
+            rd.setStatus(Status.FAILED)
+            rd.setError(ex)
+            rd.setErrorMessage(ex.getMessage)
+          }
+
+          // submit requests to be sent to Elasticsearch
+          writeQueue.addAll(timedOutRequests.asJavaCollection)
+        }
+      } catch {
+        case ex: Exception => logger.debug("Timeout handler process encountered an error", ex)
+      }
+    }
+  }
+
+  private val executor = Executors.newSingleThreadExecutor
+  executor.submit(elasticsearchWriter)
+
+  private val scheduler = Executors.newSingleThreadScheduledExecutor
+  scheduler.scheduleWithFixedDelay(timeoutHandler, 1000, 1000, TimeUnit.MILLISECONDS)
 
   override def requestStarted(requestData: org.geoserver.monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    ElasticRequestDataListener.this.synchronized {
-      requestsInProgress.add(rd) // keep track of in-progress requests
+    requestsInProgress.synchronized {
+      requestsInProgress.add(rd) // keep track of in-progress request
     }
   }
 
   override def requestUpdated(requestData: org.geoserver.monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    ElasticRequestDataListener.this.synchronized {
-      requestsInProgress.add(rd) // add the request again because sometimes callbacks are skipped
+    requestsInProgress.synchronized {
+      requestsInProgress.add(rd) // try to add request again because sometimes callbacks are skipped
     }
   }
 
   override def requestCompleted(requestData: org.geoserver.monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    ElasticRequestDataListener.this.synchronized {
-      requestsInProgress.add(rd) // add the request again because sometimes callbacks are skipped
+    requestsInProgress.synchronized {
+      requestsInProgress.add(rd) // try to add request again because sometimes callbacks are skipped
     }
   }
 
   override def requestPostProcessed(requestData: org.geoserver.monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    ElasticRequestDataListener.this.synchronized {
-      requestsInProgress.remove(rd) // stop tracking finished requests
-    }
-
-    try {
-      putElasticsearch(restClient, index, ExtendedRequestData(rd))
-    } catch {
-      case ex: Exception => logger.error(s"Failed to write request to Elasticsearch: ${ex.getMessage}")
+    requestsInProgress.synchronized {
+      requestsInProgress.remove(rd) // stop tracking finished request
+      try {
+        writeQueue.add(rd) // submit finished request to be sent to elasticsearch
+      } catch {
+        case ex: Exception => logger.debug("Elasticsearch writer process encountered an error", ex)
+      }
     }
   }
 
   // TODO: Use `co.elastic.clients:elasticsearch-java` client API instead of low-level REST API
-  protected def putElasticsearch(client: RestClient, index: String, requestData: RequestData): Unit = {
+  private def putElasticsearch(requestData: RequestData): Unit = {
     // requests are stored by their id so they can be updated if they complete after they time out
     val request = new Request("PUT", s"/$index/_doc/${requestData.internalid}")
     request.setJsonEntity(gson.toJson(requestData))
-    client.performRequest(request)
+    restClient.performRequest(request)
   }
 }
 

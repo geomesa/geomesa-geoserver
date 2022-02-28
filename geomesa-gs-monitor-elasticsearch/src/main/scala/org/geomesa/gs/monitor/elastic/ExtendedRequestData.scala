@@ -11,6 +11,7 @@ package org.geomesa.gs.monitor.elastic
 import com.google.gson._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.lang3.StringUtils
+import org.geoserver.monitor
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTS
 import org.locationtech.geomesa.filter.FilterHelper
@@ -27,16 +28,24 @@ import javax.naming.ldap.LdapName
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-class RequestData(requestData: org.geoserver.monitor.RequestData) extends org.geoserver.monitor.RequestData {
+class RequestData(requestData: monitor.RequestData) extends monitor.RequestData {
+
+  def this() = {
+    this(new monitor.RequestData)
+  }
 
   ReflectionUtils.shallowCopyFieldState(requestData, this)
 
-  override def hashCode(): Int = internalid.hashCode
+  override def hashCode: Int = internalid.hashCode
 }
 
 class ExtendedRequestData(requestData: RequestData) extends RequestData(requestData) {
 
   import org.geomesa.gs.monitor.elastic.ExtendedRequestData._
+
+  def this(requestData: monitor.RequestData) = {
+    this(new RequestData(requestData))
+  }
   
   val failed: java.lang.Boolean =
     Option(requestData.getError)
@@ -88,12 +97,6 @@ object ExtendedRequestData extends LazyLogging {
 
   val CQL_FILTER_START_KEY = "CQL_FILTER="
   val CQL_FILTER_END_KEY = "&"
-
-  def apply(requestData: RequestData): ExtendedRequestData =
-    new ExtendedRequestData(requestData)
-
-  def apply(requestData: org.geoserver.monitor.RequestData): ExtendedRequestData =
-    new ExtendedRequestData(new RequestData(requestData))
 
   def getGson(excludedFields: Set[String]): Gson = {
     new GsonBuilder()

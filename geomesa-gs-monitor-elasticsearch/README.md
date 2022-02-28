@@ -37,7 +37,8 @@ The plugin reads from a Typesafe Config file, `application.conf`, under the key
   * `password` – Elasticsearch password
   * `index` – Index to write requests to
   * `timeout` – Milliseconds after which incomplete requests should be considered failed and written to Elasticsearch,
-                requests that complete after this time has elapsed will be updated in the index
+                requests that complete after this time has elapsed will be updated in the index, default is 10000, the 
+                value must be within 1000 and 1000000
   * `excludedFields` – List of fields names that should not be written to Elasticsearch, default is none
                        (these field names should match those of the Java object)
 
