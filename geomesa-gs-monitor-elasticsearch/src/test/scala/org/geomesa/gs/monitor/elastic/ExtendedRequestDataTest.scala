@@ -8,6 +8,7 @@
 
 package org.geomesa.gs.monitor.elastic
 
+import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
 import org.geomesa.gs.monitor.elastic.ExtendedRequestDataTest._
 import org.geoserver.monitor
 import org.geotools.geometry.jts.ReferencedEnvelope
@@ -36,6 +37,23 @@ class ExtendedRequestDataTest extends Specification {
         val erd = new ExtendedRequestData(rd)
 
         Boolean.unbox(erd.failed) must beTrue
+      }
+    }
+
+    "set its timeout status" >> {
+      "when there is no timeout" in {
+        val rd = new RequestData
+        val erd = new ExtendedRequestData(rd)
+
+        Boolean.unbox(erd.timedOut) must beFalse
+      }
+
+      "when there is a timeout" in {
+        val rd = new RequestData
+        rd.setError(new UnsupportedOperationException(TIMEOUT_KEY))
+        val erd = new ExtendedRequestData(rd)
+
+        Boolean.unbox(erd.timedOut) must beTrue
       }
     }
 
@@ -357,6 +375,9 @@ class ExtendedRequestDataTest extends Specification {
       val status = monitor.RequestData.Status.FINISHED
       val totalTime = new java.lang.Long(4765)
 
+      val failed = Option(error).isDefined
+      val timedOut = Option(error).map(_.getMessage).contains(TIMEOUT_KEY)
+
       val rd = new RequestData
       rd.setBbox(bbox)
       rd.setBody(body)
@@ -382,14 +403,14 @@ class ExtendedRequestDataTest extends Specification {
 
       val gson = ExtendedRequestData.getGson(excludedFields)
       val json = gson.toJson(erd)
-      val expectedJson = s"""{"failed":${Option(error).isDefined},"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
+      val expectedJson = s"""{"failed":$failed,"timed_out":$timedOut,"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
 
       json mustEqual expectedJson
     }
   }
 }
 
-object ExtendedRequestDataTest {
+private object ExtendedRequestDataTest {
 
   private val WKT_WRITER = new WKTWriter
   private val CRS = DefaultGeographicCRS.WGS84

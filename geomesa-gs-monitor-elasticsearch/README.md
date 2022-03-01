@@ -11,6 +11,7 @@ separated by underscores.
 
 Additionally, some extra fields are computed from the request:
   * `failed` – whether the request's `error` field is populated
+  * `timedOut` – if the request failed, whether the cause of failure was a timeout
   * `bboxCentroid` – the centroid of the request's `bbox` field
   * `queryAttributes` – a list of attributes from the request's `queryString` field
   * `queryCentroids` – a list of centroids for each geometry in the request's `queryString` field
@@ -51,6 +52,7 @@ geomesa.geoserver.monitor.elasticsearch = {
   user = "elastic"
   password = "password"
   index = "requests"
+  timeout = 10000
   excludedFields = [ "internalid", "id", "status", "path", "remoteCountry", "remoteCity", "remoteLat", "remoteLon", "owsVersion", "cacheResult", "missReason", "resourcesProcessingTime", "labellingProcessingTime" ]
 }
 ```
