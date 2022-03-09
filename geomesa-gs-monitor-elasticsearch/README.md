@@ -39,7 +39,7 @@ The plugin reads from a Typesafe Config file, `application.conf`, under the key
   * `index` – Index to write requests to
   * `timeout` – Milliseconds after which incomplete requests should be considered failed and written to Elasticsearch,
                 requests that complete after this time has elapsed will be updated in the index, default is 10000, the 
-                value must be within 1000 and 1000000
+                value must be between 1000 and 10000000
   * `excludedFields` – List of fields names that should not be written to Elasticsearch, default is none
                        (these field names should match those of the Java object)
 
@@ -55,4 +55,24 @@ geomesa.geoserver.monitor.elasticsearch = {
   timeout = 10000
   excludedFields = [ "internalid", "id", "status", "path", "remoteCountry", "remoteCity", "remoteLat", "remoteLon", "owsVersion", "cacheResult", "missReason", "resourcesProcessingTime", "labellingProcessingTime" ]
 }
+```
+
+##### Environment Variables
+
+The configuration settings can also be overridden using the following environment variables:
+  * `host` – `GS_MONITOR_ES_HOST`
+  * `port` – `GS_MONITOR_ES_PORT`
+  * `user` – `GS_MONITOR_ES_USER`
+  * `password` – `GS_MONITOR_ES_PASSWORD`
+  * `index` – `GS_MONITOR_ES_INDEX`
+  * `timeout` – `GS_MONITOR_ES_TIMEOUT`
+  * `excludedFields` – `GS_MONITOR_ES_EXCLUDED_FIELDS`
+
+To use environment variables with a list type such as `excludedFields`, you must configure a separate variable for
+each element in the list, numbered sequentially:
+```
+export GS_MONITOR_ES_EXCLUDED_FIELDS.0=internalid
+export GS_MONITOR_ES_EXCLUDED_FIELDS.1=status
+export GS_MONITOR_ES_EXCLUDED_FIELDS.2=path
+...
 ```

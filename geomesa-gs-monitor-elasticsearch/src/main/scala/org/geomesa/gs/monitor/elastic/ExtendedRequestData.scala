@@ -10,17 +10,17 @@ package org.geomesa.gs.monitor.elastic
 
 import com.google.gson._
 import com.typesafe.scalalogging.LazyLogging
+import org.apache.commons.codec.binary.Base64
 import org.apache.commons.lang3.StringUtils
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTS
 import org.locationtech.geomesa.filter.FilterHelper
+import org.locationtech.geomesa.utils.text.WKTUtils
 import org.locationtech.jts.geom.Point
-import org.locationtech.jts.io.WKTWriter
 import org.opengis.filter.Filter
 import org.opengis.geometry.BoundingBox
 
 import java.lang.reflect.Type
-import java.nio.charset.StandardCharsets
 import java.util.Date
 import javax.naming.ldap.LdapName
 import scala.collection.JavaConverters._
@@ -91,9 +91,8 @@ object ExtendedRequestData extends LazyLogging {
   def getGson(excludedFields: Set[String]): Gson = {
     new GsonBuilder()
       .registerTypeAdapter(classOf[Point], new JsonSerializer[Point] {
-        private val WKT_WRITER = new WKTWriter
         override def serialize(point: Point, `type`: Type, context: JsonSerializationContext): JsonElement = {
-          new JsonPrimitive(WKT_WRITER.write(point))
+          new JsonPrimitive(WKTUtils.write(point))
         }
       })
       .registerTypeAdapter(classOf[Date], new JsonSerializer[Date] {
@@ -113,7 +112,7 @@ object ExtendedRequestData extends LazyLogging {
       })
       .registerTypeAdapter(classOf[Array[Byte]], new JsonSerializer[Array[Byte]] {
         override def serialize(array: Array[Byte], `type`: Type, context: JsonSerializationContext): JsonElement = {
-          new JsonPrimitive(Option(array).map(new String(_, StandardCharsets.UTF_8)).getOrElse(new String))
+          new JsonPrimitive(Base64.encodeBase64String(array))
         }
       })
       .addSerializationExclusionStrategy(new ExclusionStrategy {

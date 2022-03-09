@@ -20,12 +20,16 @@ import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
 import org.geoserver.monitor
 import org.geoserver.monitor.RequestData.Status
 import org.geoserver.monitor.RequestDataListener
+import org.springframework.context.event.ContextClosedEvent
+import org.springframework.context.{ApplicationEvent, ApplicationListener}
 
-import java.util.concurrent.{Executors, LinkedBlockingQueue, TimeUnit}
+import java.util.concurrent.{ConcurrentHashMap, Executors, LinkedBlockingQueue, TimeUnit}
+import java.util.function.BiFunction
 import scala.collection.JavaConverters._
 import scala.concurrent.TimeoutException
 
-class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
+class ElasticRequestDataListener extends RequestDataListener
+  with ApplicationListener[ApplicationEvent] with LazyLogging {
 
   import org.geomesa.gs.monitor.elastic.ElasticRequestDataListener._
 
@@ -38,11 +42,19 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
       .map(config.getStringList)
       .map(_.asScala.toSet)
       .getOrElse(Set.empty)
+
   private val timeout =
     Option("timeout")
       .filter(config.hasPath)
       .map(config.getLong)
-      .filter(ms => ms > 1000L && ms < 1000000L)
+      .filter { ms =>
+        if (ms >= 1000L && ms < 10000000L) {
+          true
+        } else {
+          logger.warn(s"Ignoring config value for timeout '$ms'")
+          false
+        }
+      }
       .getOrElse(10000L)
 
   private val gson = ExtendedRequestData.getGson(excludedFields)
@@ -52,15 +64,15 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
    * GeoServer Request Monitor Timeout Strategy
    *
    * If a request times out, it never reaches the completed or post-processed callbacks and thus
-   * would never be sent to Elasticsearch. To combat this, all in-progress requests are stored
-   * in a set ordered by their start time. Whenever a request is post-processed, it is sent to
-   * Elasticsearch and removed from the set. Any in-progress requests that exceed the configured
-   * timeout are marked as failed and sent to Elasticsearch. If a request completes after it has
-   * already been marked as a timeout, the Elasticsearch index is updated using the request id.
+   * would never be sent to Elasticsearch. To combat this, all in-progress requests are tracked.
+   * Whenever a request is post-processed, it is sent to Elasticsearch and removed from the set.
+   * Any in-progress requests that exceed the configured timeout are marked as failed and sent
+   * to Elasticsearch. If a request completes after it has already been marked as a timeout,
+   * the Elasticsearch index is updated using the request id.
    */
 
   private val writeQueue = new LinkedBlockingQueue[RequestData]
-  private val requestsInProgress = new SortedHashSet(RequestData.startTimeOrdering)
+  private val requestsInProgress = new ConcurrentHashMap[Long, RequestData]
 
   private val elasticsearchWriter = new Runnable {
     override def run(): Unit = {
@@ -69,7 +81,7 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
 
         try {
           putElasticsearch(new ExtendedRequestData(rd))
-          logger.debug(s"Sent request '${rd.uid}' to Elasticsearch")
+          logger.info(s"Sent request '${rd.uid}' to Elasticsearch")
         } catch {
           case ex: Exception => logger.error(s"Failed to send request '${rd.uid}' to Elasticsearch: ${ex.getMessage}")
         }
@@ -79,23 +91,23 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
 
   private val timeoutHandler = new Runnable {
     override def run(): Unit = {
-      // don't read in-progress requests while they are being updated to maintain ordering
-      requestsInProgress.synchronized {
-        val currentMillis = System.currentTimeMillis
-        val timedOutRequests = requestsInProgress.takeWhile(_.getStartTimeMillis + timeout <= currentMillis)
+      val currentMillis = System.currentTimeMillis
 
-        // mark timed-out requests as failures
-        timedOutRequests.foreach { rd =>
-          logger.debug(s"Request '${rd.uid}' timed out")
-          val ex = new TimeoutException(TIMEOUT_KEY)
-          rd.setStatus(Status.FAILED)
-          rd.setError(ex)
-          rd.setErrorMessage(ex.getMessage)
+      requestsInProgress.asScala
+        .filter { case (_, rd) =>
+          rd.getStartTimeMillis + timeout <= currentMillis
         }
+        .foreach { case (id, _) =>
+          Option(requestsInProgress.remove(id)).foreach { request =>
+            logger.info(s"Request '${request.uid}' timed out")
+            val ex = new TimeoutException(TIMEOUT_KEY)
+            request.setStatus(Status.FAILED)
+            request.setError(ex)
+            request.setErrorMessage(ex.getMessage)
 
-        // submit requests to be sent to Elasticsearch
-        writeQueue.addAll(timedOutRequests.asJavaCollection)
-      }
+            writeQueue.add(request)
+          }
+        }
     }
   }
 
@@ -108,33 +120,39 @@ class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
   override def requestStarted(requestData: monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    requestsInProgress.synchronized {
-      requestsInProgress.add(rd) // keep track of in-progress request
-    }
+    requestsInProgress.put(rd.internalid, rd) // keep track of in-progress request
   }
 
   override def requestUpdated(requestData: monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    requestsInProgress.synchronized {
-      requestsInProgress.add(rd) // add request again to update state
-    }
+    requestsInProgress.put(rd.internalid, rd) // add request again to update state
   }
 
   override def requestCompleted(requestData: monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    requestsInProgress.synchronized {
-      requestsInProgress.add(rd) // add request again to update state
-    }
+    requestsInProgress.put(rd.internalid, rd) // add request again to update state
   }
 
   override def requestPostProcessed(requestData: monitor.RequestData): Unit = {
     val rd = new RequestData(requestData)
 
-    requestsInProgress.synchronized {
-      requestsInProgress.remove(rd) // stop tracking finished request
-      writeQueue.add(rd) // submit finished request to be sent to elasticsearch
+    requestsInProgress.compute(rd.internalid, new BiFunction[Long, RequestData, RequestData] {
+      override def apply(id: Long, request: RequestData): RequestData = {
+        writeQueue.add(request)
+        null // stop tracking finished request
+      }
+    })
+  }
+
+  override def onApplicationEvent(event: ApplicationEvent): Unit = {
+    event match {
+      case _: ContextClosedEvent =>
+        scheduler.shutdown()
+        executor.shutdown()
+        restClient.close()
+      case _ =>
     }
   }
 

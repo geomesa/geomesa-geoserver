@@ -8,6 +8,7 @@
 
 package org.geomesa.gs.monitor.elastic
 
+import org.apache.commons.codec.binary.Base64
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
 import org.geomesa.gs.monitor.elastic.ExtendedRequestDataTest._
 import org.geoserver.monitor
@@ -16,7 +17,6 @@ import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.locationtech.jts.io.WKTWriter
 import org.specs2.mutable.Specification
 
-import java.nio.charset.StandardCharsets
 import java.util.Date
 import scala.collection.JavaConverters._
 
@@ -359,7 +359,7 @@ class ExtendedRequestDataTest extends Specification {
       val resourceStr = "foo:bar"
 
       val bbox = new ReferencedEnvelope(-117.14141615693983, -117.19950166515697, 37.034726090346105, 37.09281159856325, CRS)
-      val body = new String(bodyStr).getBytes(StandardCharsets.UTF_8)
+      val body = Base64.decodeBase64(bodyStr)
       val bodyContentLength = new java.lang.Long(4)
       val category = monitor.RequestData.Category.REST
       val endTime = new Date(1645048281995L)
