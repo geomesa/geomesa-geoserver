@@ -111,16 +111,6 @@ class ElasticRequestDataListener extends RequestDataListener
               null // stop tracking timed-out request
             }
           })
-
-          Option(requestsInProgress.remove(id)).foreach { request =>
-            logger.info(s"Request '${request.uid}' timed out")
-            val ex = new TimeoutException(TIMEOUT_KEY)
-            request.setStatus(Status.FAILED)
-            request.setError(ex)
-            request.setErrorMessage(ex.getMessage)
-
-            writeQueue.add(request)
-          }
         }
     }
   }
