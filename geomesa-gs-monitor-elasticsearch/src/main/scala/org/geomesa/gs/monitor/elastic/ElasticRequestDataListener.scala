@@ -140,7 +140,7 @@ class ElasticRequestDataListener extends RequestDataListener
 
     requestsInProgress.compute(rd.internalid, new BiFunction[Long, RequestData, RequestData] {
       override def apply(id: Long, request: RequestData): RequestData = {
-        writeQueue.add(request)
+        writeQueue.add(rd)
         null // stop tracking finished request
       }
     })
