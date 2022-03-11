@@ -98,6 +98,20 @@ class ElasticRequestDataListener extends RequestDataListener
           rd.getStartTimeMillis + timeout <= currentMillis
         }
         .foreach { case (id, _) =>
+          // add timed-out request to queue if it has not already been removed
+          requestsInProgress.computeIfPresent(id, new BiFunction[Long, RequestData, RequestData] {
+            override def apply(id: Long, request: RequestData): RequestData = {
+              logger.info(s"Request '${request.uid}' timed out")
+              val ex = new TimeoutException(TIMEOUT_KEY)
+              request.setStatus(Status.FAILED)
+              request.setError(ex)
+              request.setErrorMessage(ex.getMessage)
+
+              writeQueue.add(request)
+              null // stop tracking timed-out request
+            }
+          })
+
           Option(requestsInProgress.remove(id)).foreach { request =>
             logger.info(s"Request '${request.uid}' timed out")
             val ex = new TimeoutException(TIMEOUT_KEY)
