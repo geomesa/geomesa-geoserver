@@ -8,137 +8,197 @@
 
 package org.geomesa.gs.monitor.elastic
 
-import java.lang.reflect.Type
-import java.net.{MalformedURLException, URL}
-import java.util.Date
-
-import com.google.gson._
+import com.typesafe.config.{Config, ConfigFactory}
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.http.HttpHost
-import org.elasticsearch.action.ActionListener
-import org.elasticsearch.client.{RequestOptions, RestClient, RestHighLevelClient}
-import org.elasticsearch.action.index.{IndexRequest, IndexResponse}
-import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.action.DocWriteResponse
-import org.geoserver.monitor.{RequestData, RequestDataListener}
-import org.opengis.geometry.BoundingBox
+import org.apache.http.auth.{AuthScope, UsernamePasswordCredentials}
+import org.apache.http.impl.client.BasicCredentialsProvider
+import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
+import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
+import org.elasticsearch.client.{Request, RestClient}
+import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
+import org.geoserver.monitor
+import org.geoserver.monitor.RequestData.Status
+import org.geoserver.monitor.RequestDataListener
+import org.springframework.context.event.ContextClosedEvent
+import org.springframework.context.{ApplicationEvent, ApplicationListener}
 
-import scala.collection.mutable.ArrayBuffer
+import java.util.concurrent.{ConcurrentHashMap, Executors, LinkedBlockingQueue, TimeUnit}
+import java.util.function.BiFunction
+import scala.collection.JavaConverters._
+import scala.concurrent.TimeoutException
 
+class ElasticRequestDataListener extends RequestDataListener
+  with ApplicationListener[ApplicationEvent] with LazyLogging {
 
+  import org.geomesa.gs.monitor.elastic.ElasticRequestDataListener._
 
-class ElasticRequestDataListener extends RequestDataListener with LazyLogging {
-  import ElasticRequestDataListener.gson
-  val envVars = sys.env.getOrElse("ELASTICSEARCH_HOST", "unset").split(',')
-  if(envVars(0) == "unset"){
-    logger.error("Environment variable ELASTICSEARCH_HOST is not set")
-    throw new Exception("Environment variable ELASTICSEARCH_HOST is not set. Stopping build.")
-  }
-  //initialized variables
-  var host = ""
-  var port = 0
-  var protocol = ""
-  val hostList = new ArrayBuffer[HttpHost]
+  private val config = ConfigFactory.load.getConfig(GEOSERVER_MONITOR_ELASTICSEARCH_KEY)
+  private val index = config.getString("index")
 
-  for (u <- envVars) {
-    try {
-      val url = new URL(u.trim())
-      host = url.getHost
-      port = url.getPort
-      protocol = url.getProtocol
-      hostList.append(new HttpHost(host, port, protocol))
-    }
-    catch{
-      case e: MalformedURLException => logger.error("Invalid URL " + u + ". Could not convert from string to URL. Trying any additional URLs")
-    }
-  }
-  if (hostList.length == 0) {
-    logger.error("No URL given. Could not resolve " + envVars.mkString(","))
-    throw new Exception("Given URL(s) " + envVars.mkString(",") + " cannot be read by Java URL")
-  }
+  private val excludedFields =
+    Option("excludedFields")
+      .filter(config.hasPath)
+      .map(config.getStringList)
+      .map(_.asScala.toSet)
+      .getOrElse(Set.empty)
 
-  val hosts = hostList.toArray
-  val client = new RestHighLevelClient(
-    RestClient.builder(hosts:_*)
-  )
-  logger.debug("Sending requests to " + hosts)
-
-  var index = sys.env.getOrElse("GEOSERVER_ES_INDEX", null)
-  if (index == null){
-    index = "geoserver"
-    logger.warn("No index name provided. Index will be set to default name 'geoserver'")
-  }
-
-  override def requestStarted(requestData: RequestData): Unit = {}
-
-  override def requestUpdated(requestData: RequestData): Unit = {
-    writeToElasticsearch(requestData)
-  }
-
-  override def requestCompleted(requestData: RequestData): Unit = {}
-
-  private def writeToElasticsearch(requestData: RequestData) = {
-    // 1. Skip over requests which do not have the resources set.
-    // 2. Skip over failures without the endTime set.
-    if (
-      !requestData.getResources.isEmpty &&
-      (!(requestData.getStatus == RequestData.Status.FAILED && requestData.getEndTime == null))
-    ) {
-      val json = gson.toJson(requestData)
-      val request = new IndexRequest(index)
-      request.source(json, XContentType.JSON)
-      client.indexAsync(request, RequestOptions.DEFAULT, new LoggingCallback())
-    }
-  }
-
-  class LoggingCallback() extends ActionListener[IndexResponse] with LazyLogging {
-    override def onResponse(index_response :IndexResponse): Unit = {
-      val index = index_response.getIndex
-      val id = index_response.getId
-      if (index_response.getResult eq DocWriteResponse.Result.CREATED) {
-        logger.debug("Request indexed in " + index + " with Id " + id)
+  private val timeout =
+    Option("timeout")
+      .filter(config.hasPath)
+      .map(config.getLong)
+      .filter { ms =>
+        if (ms >= 1000L && ms < 10000000L) {
+          true
+        } else {
+          logger.warn(s"Ignoring config value for timeout '$ms'")
+          false
+        }
       }
-      val shardInfo = index_response.getShardInfo
-      if (shardInfo.getTotal != shardInfo.getSuccessful) {
-        logger.debug("Total shards do not match successful shards. Total: " + shardInfo.getTotal + " Successful: " + shardInfo.getSuccessful)
-      }
-      if (shardInfo.getFailed > 0) for (failure <- shardInfo.getFailures) {
-        val reason = failure.reason
-        logger.warn("Shard Failure: " + reason)
+      .getOrElse(10000L)
+
+  private val gson = ExtendedRequestData.getGson(excludedFields)
+  private val restClient = getRestClient(config)
+
+  /*
+   * GeoServer Request Monitor Timeout Strategy
+   *
+   * If a request times out, it never reaches the completed or post-processed callbacks and thus
+   * would never be sent to Elasticsearch. To combat this, all in-progress requests are tracked.
+   * Whenever a request is post-processed, it is sent to Elasticsearch and removed from the set.
+   * Any in-progress requests that exceed the configured timeout are marked as failed and sent
+   * to Elasticsearch. If a request completes after it has already been marked as a timeout,
+   * the Elasticsearch index is updated using the request id.
+   */
+
+  private val writeQueue = new LinkedBlockingQueue[RequestData]
+  private val requestsInProgress = new ConcurrentHashMap[Long, RequestData]
+
+  private val elasticsearchWriter = new Runnable {
+    override def run(): Unit = {
+      while (!Thread.interrupted) {
+        val rd = writeQueue.take // block until data is available to send
+
+        try {
+          putElasticsearch(new ExtendedRequestData(rd))
+          logger.info(s"Sent request '${rd.uid}' to Elasticsearch")
+        } catch {
+          case ex: Exception => logger.error(s"Failed to send request '${rd.uid}' to Elasticsearch: ${ex.getMessage}")
+        }
       }
     }
+  }
 
-    override def onFailure(ex: Exception): Unit = {
-      logger.error("Index request failed, caused by: " + ex)
+  private val timeoutHandler = new Runnable {
+    override def run(): Unit = {
+      val currentMillis = System.currentTimeMillis
+
+      requestsInProgress.asScala
+        .filter { case (_, rd) =>
+          rd.getStartTimeMillis + timeout <= currentMillis
+        }
+        .foreach { case (id, _) =>
+          // add timed-out request to queue if it has not already been removed
+          requestsInProgress.computeIfPresent(id, new BiFunction[Long, RequestData, RequestData] {
+            override def apply(id: Long, request: RequestData): RequestData = {
+              logger.info(s"Request '${request.uid}' timed out")
+              val ex = new TimeoutException(TIMEOUT_KEY)
+              request.setStatus(Status.FAILED)
+              request.setError(ex)
+              request.setErrorMessage(ex.getMessage)
+
+              writeQueue.add(request)
+              null // stop tracking timed-out request
+            }
+          })
+
+          Option(requestsInProgress.remove(id)).foreach { request =>
+            logger.info(s"Request '${request.uid}' timed out")
+            val ex = new TimeoutException(TIMEOUT_KEY)
+            request.setStatus(Status.FAILED)
+            request.setError(ex)
+            request.setErrorMessage(ex.getMessage)
+
+            writeQueue.add(request)
+          }
+        }
     }
   }
 
-  override def requestPostProcessed(requestData: RequestData): Unit = {}
+  private val executor = Executors.newSingleThreadExecutor
+  executor.submit(elasticsearchWriter)
+
+  private val scheduler = Executors.newSingleThreadScheduledExecutor
+  scheduler.scheduleWithFixedDelay(timeoutHandler, 1000, 1000, TimeUnit.MILLISECONDS)
+
+  override def requestStarted(requestData: monitor.RequestData): Unit = {
+    val rd = new RequestData(requestData)
+
+    requestsInProgress.put(rd.internalid, rd) // keep track of in-progress request
+  }
+
+  override def requestUpdated(requestData: monitor.RequestData): Unit = {
+    val rd = new RequestData(requestData)
+
+    requestsInProgress.put(rd.internalid, rd) // add request again to update state
+  }
+
+  override def requestCompleted(requestData: monitor.RequestData): Unit = {
+    val rd = new RequestData(requestData)
+
+    requestsInProgress.put(rd.internalid, rd) // add request again to update state
+  }
+
+  override def requestPostProcessed(requestData: monitor.RequestData): Unit = {
+    val rd = new RequestData(requestData)
+
+    requestsInProgress.compute(rd.internalid, new BiFunction[Long, RequestData, RequestData] {
+      override def apply(id: Long, request: RequestData): RequestData = {
+        writeQueue.add(rd)
+        null // stop tracking finished request
+      }
+    })
+  }
+
+  override def onApplicationEvent(event: ApplicationEvent): Unit = {
+    event match {
+      case _: ContextClosedEvent =>
+        scheduler.shutdown()
+        executor.shutdown()
+        restClient.close()
+      case _ =>
+    }
+  }
+
+  // TODO: Use `co.elastic.clients:elasticsearch-java` client API instead of low-level REST API
+  private def putElasticsearch(requestData: RequestData): Unit = {
+    // requests need to be identifiable so they can be updated if they complete after they time out
+    // but ids reset when geoserver restarts, so use a combination of the id and start time
+    val request = new Request("PUT", s"/$index/_doc/${requestData.uid}")
+    request.setJsonEntity(gson.toJson(requestData))
+    restClient.performRequest(request)
+  }
 }
 
 object ElasticRequestDataListener {
-  private val gson: Gson = new GsonBuilder()
-    .registerTypeAdapter(classOf[Date], DateSerializer)
-    .registerTypeAdapter(classOf[BoundingBox], BoundingBoxSerializer)
-    .registerTypeAdapter(classOf[Throwable], ThrowableSerializer)
-    .serializeNulls().create()
 
-  object DateSerializer extends JsonSerializer[Date] {
-    override def serialize(src: Date, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
-      new JsonPrimitive(src.getTime)
-    }
+  val GEOSERVER_MONITOR_ELASTICSEARCH_KEY = "geomesa.geoserver.monitor.elasticsearch"
+
+  private def getRestClient(config: Config): RestClient = {
+    val host = config.getString("host")
+    val port = config.getInt("port")
+    val user = config.getString("user")
+    val password = config.getString("password")
+
+    val credentialsProvider = new BasicCredentialsProvider
+    credentialsProvider.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(user, password))
+
+    val clientBuilder = RestClient.builder(new HttpHost(host, port))
+      .setHttpClientConfigCallback(new HttpClientConfigCallback {
+        override def customizeHttpClient(httpClientBuilder: HttpAsyncClientBuilder): HttpAsyncClientBuilder =
+          httpClientBuilder.setDefaultCredentialsProvider(credentialsProvider)
+      })
+
+    clientBuilder.build
   }
-
-  object BoundingBoxSerializer extends JsonSerializer[BoundingBox] {
-    override def serialize(src: BoundingBox, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
-      new JsonPrimitive(src.toString)
-    }
-  }
-
-  object ThrowableSerializer extends JsonSerializer[Throwable] {
-    override def serialize(src: Throwable, typeOfSrc: Type, context: JsonSerializationContext): JsonElement = {
-      new JsonPrimitive(src.getMessage)
-    }
-  }
-
 }
