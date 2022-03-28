@@ -17,6 +17,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 import org.elasticsearch.client.{Request, RestClient}
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
+import org.geoserver.catalog.{Catalog, ResourceInfo}
 import org.geoserver.monitor
 import org.geoserver.monitor.RequestData.Status
 import org.geoserver.monitor.RequestDataListener
@@ -28,11 +29,12 @@ import java.util.function.BiFunction
 import scala.collection.JavaConverters._
 import scala.concurrent.TimeoutException
 
-class ElasticRequestDataListener extends RequestDataListener
+class ElasticRequestDataListener(catalog: Catalog) extends RequestDataListener
   with ApplicationListener[ApplicationEvent] with LazyLogging {
 
   import org.geomesa.gs.monitor.elastic.ElasticRequestDataListener._
 
+  ExtendedRequestData.catalog = catalog
   private val config = ConfigFactory.load.getConfig(GEOSERVER_MONITOR_ELASTICSEARCH_KEY)
   private val index = config.getString("index")
 

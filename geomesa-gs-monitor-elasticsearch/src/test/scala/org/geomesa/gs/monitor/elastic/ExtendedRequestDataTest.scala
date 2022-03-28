@@ -11,10 +11,12 @@ package org.geomesa.gs.monitor.elastic
 import org.apache.commons.codec.binary.Base64
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
 import org.geomesa.gs.monitor.elastic.ExtendedRequestDataTest._
+import org.geoserver.catalog.Catalog
 import org.geoserver.monitor
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
 import org.locationtech.jts.io.WKTWriter
+import org.specs2.mock.Mockito.mock
 import org.specs2.mutable.Specification
 
 import java.util.Date
@@ -22,6 +24,7 @@ import scala.collection.JavaConverters._
 
 class ExtendedRequestDataTest extends Specification {
 
+  ExtendedRequestData.catalog = mockCatalog
   "ExtendedRequestData" should {
     "set its failure status" >> {
       "when there is no error" in {
@@ -430,4 +433,6 @@ private object ExtendedRequestDataTest {
   private val CENTROID_6 = "POINT (-97.04677502305373 32.90475063799967)"
 
   private val BBOX_CENTROID = "POINT (-117.1704589110484 37.06376884445468)"
+
+  private val mockCatalog: Catalog = mock[Catalog]
 }

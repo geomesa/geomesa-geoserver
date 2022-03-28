@@ -12,6 +12,7 @@ import com.google.gson._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.lang3.StringUtils
+import org.geoserver.catalog.{Catalog, ResourceInfo, StoreInfo}
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTS
 import org.locationtech.geomesa.filter.FilterHelper
@@ -79,6 +80,41 @@ class ExtendedRequestData(requestData: RequestData) extends RequestData(requestD
     distinguishedName
       .map(extractRdnValues(_, "OU"))
       .asNonEmptyJavaListOrNull
+
+  val resourceNames: java.util.List[String] =
+    requestData
+      .getResources
+      .asScala
+      .map(_.split(":")(1))
+      .asJava
+
+  val resourceStoreNames: java.util.List[String] =
+    requestData
+      .getResources
+      .asScala
+      .map(extractStoreName)
+      .asJava
+
+  val resourceStoreTitles: java.util.List[String] =
+    requestData
+      .getResources
+      .asScala
+      .map(extractResourceTitle)
+      .asJava
+
+  val resourceStoreWorkspaces: java.util.List[String] =
+    requestData
+      .getResources
+      .asScala
+      .map(extractStoreWorkspace)
+      .asJava
+
+  val resourceStoreTypes: java.util.List[String] =
+    requestData
+      .getResources
+      .asScala
+      .map(extractResourceStoreType)
+      .asJava
 }
 
 object ExtendedRequestData extends LazyLogging {
@@ -87,6 +123,8 @@ object ExtendedRequestData extends LazyLogging {
   val CQL_FILTER_END_KEY = "&"
 
   val TIMEOUT_KEY = "TIMEOUT"
+
+  var catalog: Catalog = _
 
   def getGson(excludedFields: Set[String]): Gson = {
     new GsonBuilder()
@@ -154,6 +192,37 @@ object ExtendedRequestData extends LazyLogging {
 
   private def extractRdnValues(dn: LdapName, key: String): Seq[String] = {
     dn.getRdns.asScala.filter(_.getType.equalsIgnoreCase(key)).map(_.getValue.toString)
+  }
+
+  private def extractResourceInfo(resource: String): ResourceInfo = {
+    catalog.getLayerByName(resource).getResource
+  }
+
+  private def extractResourceStore(resource: String): StoreInfo = {
+    extractResourceInfo(resource)
+      .getStore
+  }
+
+  private def extractResourceTitle(resource: String): String = {
+    extractResourceInfo(resource)
+      .getTitle
+  }
+
+  private def extractStoreName(resource: String): String = {
+    extractResourceInfo(resource)
+      .getStore
+      .getName
+  }
+
+  private def extractStoreWorkspace(resource: String): String = {
+    extractResourceStore(resource)
+      .getWorkspace
+      .getName
+  }
+
+  private def extractResourceStoreType(resource: String): String = {
+    extractResourceStore(resource)
+      .getType
   }
 
   private implicit class TryExtensions[T](result: Try[T]) {
