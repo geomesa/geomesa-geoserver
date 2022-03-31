@@ -34,7 +34,6 @@ class ElasticRequestDataListener(catalog: Catalog) extends RequestDataListener
 
   import org.geomesa.gs.monitor.elastic.ElasticRequestDataListener._
 
-  ExtendedRequestData.catalog = catalog
   private val config = ConfigFactory.load.getConfig(GEOSERVER_MONITOR_ELASTICSEARCH_KEY)
   private val index = config.getString("index")
 
@@ -82,7 +81,7 @@ class ElasticRequestDataListener(catalog: Catalog) extends RequestDataListener
         val rd = writeQueue.take // block until data is available to send
 
         try {
-          putElasticsearch(new ExtendedRequestData(rd))
+          putElasticsearch(new ExtendedRequestData(rd, catalog))
           logger.info(s"Sent request '${rd.uid}' to Elasticsearch")
         } catch {
           case ex: Exception => logger.error(s"Failed to send request '${rd.uid}' to Elasticsearch: ${ex.getMessage}")
