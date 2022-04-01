@@ -164,7 +164,6 @@ object ExtendedRequestData extends LazyLogging {
   }
 
   private def extractResourceInfo(resource: String, catalog: Catalog): ResourceInfo = {
-    logger.info(s"Extracting resource metadata for ${resource}")
     catalog.getLayerByName(resource).getResource
   }
 
@@ -184,8 +183,7 @@ object ExtendedRequestData extends LazyLogging {
   }
 
   private def extractStoreName(resource: String, catalog: Catalog): String = {
-    extractResourceInfo(resource, catalog)
-      .getStore
+    extractResourceStore(resource, catalog)
       .getName
   }
 

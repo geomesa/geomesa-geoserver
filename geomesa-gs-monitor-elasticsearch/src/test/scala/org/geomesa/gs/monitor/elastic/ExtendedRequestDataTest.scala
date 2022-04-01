@@ -11,20 +11,36 @@ package org.geomesa.gs.monitor.elastic
 import org.apache.commons.codec.binary.Base64
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
 import org.geomesa.gs.monitor.elastic.ExtendedRequestDataTest._
-import org.geoserver.catalog.Catalog
+import org.geoserver.catalog.{Catalog, LayerInfo, ResourceInfo, StoreInfo, WorkspaceInfo}
 import org.geoserver.monitor
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
+import org.junit.runner.RunWith
 import org.locationtech.jts.io.WKTWriter
-import org.specs2.mock.Mockito.mock
+import org.mockito.Mockito.{mock, when}
 import org.specs2.mutable.Specification
+import org.specs2.runner.JUnitRunner
 
 import java.util.Date
 import scala.collection.JavaConverters._
 
+@RunWith(classOf[JUnitRunner])
 class ExtendedRequestDataTest extends Specification {
 
+  private def prepareMockCatalog(): Unit = {
+    when(mockCatalog.getLayerByName("foo:bar")).thenReturn(mockLayer)
+    when(mockLayer.getResource).thenReturn(mockResource)
+    when(mockResource.getName).thenReturn(RESOURCE_NAME)
+    when(mockResource.getTitle).thenReturn(RESOURCE_TITLE)
+    when(mockResource.getStore).thenReturn(mockStore)
+    when(mockStore.getType).thenReturn(STORE_TYPE)
+    when(mockStore.getName).thenReturn(STORE_NAME)
+    when(mockStore.getWorkspace).thenReturn(mockWorkspace)
+    when(mockWorkspace.getName).thenReturn(WORKSPACE_NAME)
+  }
+
   "ExtendedRequestData" should {
+    step(prepareMockCatalog())
     "set its failure status" >> {
       "when there is no error" in {
         val rd = new RequestData
@@ -358,7 +374,7 @@ class ExtendedRequestDataTest extends Specification {
       val cnStr = "foo"
       val oStr = "bar"
       val ouStr = "baz"
-      val resourceStr = "foo:bar"
+      val resourceStr = LAYER_NAME
 
       val bbox = new ReferencedEnvelope(-117.14141615693983, -117.19950166515697, 37.034726090346105, 37.09281159856325, CRS)
       val body = Base64.decodeBase64(bodyStr)
@@ -401,11 +417,11 @@ class ExtendedRequestDataTest extends Specification {
       val erd = new ExtendedRequestData(rd, mockCatalog)
 
       // null fields should be excluded regardless
-      val excludedFields = Set("httpMethod", "responseLength", "responseContentType", "subOperation", "remoteLat", "remoteLon", "id", "internalid", "catalog")
+      val excludedFields = Set("httpMethod", "responseLength", "responseContentType", "subOperation", "remoteLat", "remoteLon", "id", "internalid")
 
       val gson = ExtendedRequestData.getGson(excludedFields)
       val json = gson.toJson(erd)
-      val expectedJson = s"""{"failed":$failed,"timed_out":$timedOut,"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
+      val expectedJson = s"""{"failed":$failed,"timed_out":$timedOut,"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"resource_names":["$RESOURCE_NAME"],"resource_store_names":["$STORE_NAME"],"resource_store_titles":["$RESOURCE_TITLE"],"resource_store_workspaces":["$WORKSPACE_NAME"],"resource_store_types":["$STORE_TYPE"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
 
       json mustEqual expectedJson
     }
@@ -433,5 +449,16 @@ private object ExtendedRequestDataTest {
 
   private val BBOX_CENTROID = "POINT (-117.1704589110484 37.06376884445468)"
 
-  private val mockCatalog: Catalog = mock[Catalog]
+  private val LAYER_NAME = "foo:bar"
+  private val RESOURCE_NAME = "TEST_RESOURCE_NAME"
+  private val RESOURCE_TITLE = "TEST_RESOURCE_TITLE"
+  private val STORE_NAME = "TEST_STORE_NAME"
+  private val STORE_TYPE = "TEST_STORE_TYPE"
+  private val WORKSPACE_NAME = "TEST_WORKSPACE_NAME"
+
+  private val mockCatalog: Catalog = mock(classOf[Catalog])
+  private val mockResource: ResourceInfo = mock(classOf[ResourceInfo])
+  private val mockLayer: LayerInfo = mock(classOf[LayerInfo])
+  private val mockStore: StoreInfo = mock(classOf[StoreInfo])
+  private val mockWorkspace: WorkspaceInfo = mock(classOf[WorkspaceInfo])
 }
