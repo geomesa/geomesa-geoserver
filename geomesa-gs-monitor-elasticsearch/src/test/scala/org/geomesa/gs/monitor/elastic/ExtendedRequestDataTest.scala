@@ -11,22 +11,40 @@ package org.geomesa.gs.monitor.elastic
 import org.apache.commons.codec.binary.Base64
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
 import org.geomesa.gs.monitor.elastic.ExtendedRequestDataTest._
+import org.geoserver.catalog.{Catalog, LayerInfo, ResourceInfo, StoreInfo, WorkspaceInfo}
 import org.geoserver.monitor
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
+import org.junit.runner.RunWith
 import org.locationtech.jts.io.WKTWriter
+import org.mockito.Mockito.{mock, when}
 import org.specs2.mutable.Specification
+import org.specs2.runner.JUnitRunner
 
 import java.util.Date
 import scala.collection.JavaConverters._
 
+@RunWith(classOf[JUnitRunner])
 class ExtendedRequestDataTest extends Specification {
 
+  private def prepareMockCatalog(): Unit = {
+    when(mockCatalog.getLayerByName("foo:bar")).thenReturn(mockLayer)
+    when(mockLayer.getResource).thenReturn(mockResource)
+    when(mockResource.getName).thenReturn(RESOURCE_NAME)
+    when(mockResource.getTitle).thenReturn(RESOURCE_TITLE)
+    when(mockResource.getStore).thenReturn(mockStore)
+    when(mockStore.getType).thenReturn(STORE_TYPE)
+    when(mockStore.getName).thenReturn(STORE_NAME)
+    when(mockStore.getWorkspace).thenReturn(mockWorkspace)
+    when(mockWorkspace.getName).thenReturn(WORKSPACE_NAME)
+  }
+
   "ExtendedRequestData" should {
+    step(prepareMockCatalog())
     "set its failure status" >> {
       "when there is no error" in {
         val rd = new RequestData
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         Boolean.unbox(erd.failed) must beFalse
       }
@@ -34,7 +52,7 @@ class ExtendedRequestDataTest extends Specification {
       "when there is an error" in {
         val rd = new RequestData
         rd.setError(new UnsupportedOperationException("error"))
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         Boolean.unbox(erd.failed) must beTrue
       }
@@ -43,7 +61,7 @@ class ExtendedRequestDataTest extends Specification {
     "set its timeout status" >> {
       "when there is no timeout" in {
         val rd = new RequestData
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         Boolean.unbox(erd.timedOut) must beFalse
       }
@@ -51,7 +69,7 @@ class ExtendedRequestDataTest extends Specification {
       "when there is a timeout" in {
         val rd = new RequestData
         rd.setError(new UnsupportedOperationException(TIMEOUT_KEY))
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         Boolean.unbox(erd.timedOut) must beTrue
       }
@@ -60,7 +78,7 @@ class ExtendedRequestDataTest extends Specification {
     "compute the centroid of its bbox" >> {
       "when the bbox is not set" in {
         val rd = new RequestData
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.bboxCentroid must beNull
       }
@@ -69,7 +87,7 @@ class ExtendedRequestDataTest extends Specification {
         val bbox = new ReferencedEnvelope(-117.14141615693983, -117.19950166515697, 37.034726090346105, 37.09281159856325, CRS)
         val rd = new RequestData
         rd.setBbox(bbox)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkt = BBOX_CENTROID
         val wkt = WKT_WRITER.write(erd.bboxCentroid)
@@ -81,7 +99,7 @@ class ExtendedRequestDataTest extends Specification {
     "compute the attributes in its query string" >> {
       "when the queryString is not set" in {
         val rd = new RequestData
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.queryAttributes must beNull
       }
@@ -90,7 +108,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = "CQL_FILTER=INCLUDE"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.queryAttributes must beNull
       }
@@ -99,7 +117,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = "CQL_FILTER=attr1 LIKE 'foo'"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedAttributes = Seq("attr1")
         val attributes = erd.queryAttributes.asScala
@@ -111,7 +129,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_1)) AND (INTERSECTS (attr2, $POLYGON_2))"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedAttributes = Seq("attr1", "attr2")
         val attributes = erd.queryAttributes.asScala
@@ -123,7 +141,7 @@ class ExtendedRequestDataTest extends Specification {
     "compute the centroids of the geometries in its query string" >> {
       "when the queryString is not set" in {
         val rd = new RequestData
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.queryCentroids must beNull
       }
@@ -132,7 +150,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"INTERSECTS (attr1, $POLYGON_1)"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.queryCentroids must beNull
       }
@@ -141,7 +159,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=INTERSECTS (attr2, $POLYGON_2);service=WFS;srsName=EPSG:4326"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.queryCentroids must beNull
       }
@@ -150,7 +168,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"query&CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_1)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -162,7 +180,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = "CQL_FILTER=INCLUDE"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.queryCentroids must beNull
       }
@@ -171,7 +189,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = "CQL_FILTER=attr1 LIKE 'foo'"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.queryCentroids must beNull
       }
@@ -180,7 +198,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_1)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -192,7 +210,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"cql_filter=INTERSECTS (attr1, $POLYGON_1)"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_1)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -204,7 +222,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=INTERSECTS (attr1, $POLYGON_1)&service=WFS&srsName=EPSG:4326"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_1)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -216,7 +234,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = "CQL_FILTER=BBOX (attr1, -117.14141615693983, 37.034726090346105, -117.19950166515697, 37.09281159856325)"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(BBOX_CENTROID)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -228,7 +246,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_1)) AND (INTERSECTS (attr2, $POLYGON_2))"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_1, CENTROID_2)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -240,7 +258,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_1)) AND (INTERSECTS (attr1, $POLYGON_2))"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_2)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -252,7 +270,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_3)) AND (INTERSECTS (attr1, $POLYGON_4))"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_3_AND_4)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -264,7 +282,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_3)) OR (INTERSECTS (attr1, $POLYGON_5))"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_3, CENTROID_5)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -276,7 +294,7 @@ class ExtendedRequestDataTest extends Specification {
         val queryString = s"CQL_FILTER=(INTERSECTS (attr1, $POLYGON_6)) AND (BBOX (attr1, -97.04690330744837, 32.904622353605006, -97.04664673865905, 32.90487892239433))&"
         val rd = new RequestData
         rd.setQueryString(queryString)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedWkts = Seq(CENTROID_6)
         val wkts = erd.queryCentroids.asScala.map(WKT_WRITER.write)
@@ -288,7 +306,7 @@ class ExtendedRequestDataTest extends Specification {
     "parse its distinguished name" >> {
       "when the name is null" in {
         val rd = new RequestData
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.commonNames must beNull
         erd.organizations must beNull
@@ -299,7 +317,7 @@ class ExtendedRequestDataTest extends Specification {
         val remoteUser = "(CN=foo)"
         val rd = new RequestData
         rd.setRemoteUser(remoteUser)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         erd.commonNames must beNull
         erd.organizations must beNull
@@ -310,7 +328,7 @@ class ExtendedRequestDataTest extends Specification {
         val remoteUser = "CN=foo,O=bar,OU=baz,C=US"
         val rd = new RequestData
         rd.setRemoteUser(remoteUser)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedCommonNames = Seq("foo")
         val expectedOrganizations = Seq("bar")
@@ -325,7 +343,7 @@ class ExtendedRequestDataTest extends Specification {
         val remoteUser = "OU=foo,C=US,CN=bar,OU=baz"
         val rd = new RequestData
         rd.setRemoteUser(remoteUser)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedCommonNames = Seq("bar")
         val expectedOrganizationalUnits = Seq("foo", "baz")
@@ -339,7 +357,7 @@ class ExtendedRequestDataTest extends Specification {
         val remoteUser = "CN=foo,CN=bar,CN=baz"
         val rd = new RequestData
         rd.setRemoteUser(remoteUser)
-        val erd = new ExtendedRequestData(rd)
+        val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedCommonNames = Seq("foo", "bar", "baz")
 
@@ -356,7 +374,7 @@ class ExtendedRequestDataTest extends Specification {
       val cnStr = "foo"
       val oStr = "bar"
       val ouStr = "baz"
-      val resourceStr = "foo:bar"
+      val resourceStr = LAYER_NAME
 
       val bbox = new ReferencedEnvelope(-117.14141615693983, -117.19950166515697, 37.034726090346105, 37.09281159856325, CRS)
       val body = Base64.decodeBase64(bodyStr)
@@ -396,14 +414,14 @@ class ExtendedRequestDataTest extends Specification {
       rd.setStatus(status)
       rd.setTotalTime(totalTime)
 
-      val erd = new ExtendedRequestData(rd)
+      val erd = new ExtendedRequestData(rd, mockCatalog)
 
       // null fields should be excluded regardless
       val excludedFields = Set("httpMethod", "responseLength", "responseContentType", "subOperation", "remoteLat", "remoteLon", "id", "internalid")
 
       val gson = ExtendedRequestData.getGson(excludedFields)
       val json = gson.toJson(erd)
-      val expectedJson = s"""{"failed":$failed,"timed_out":$timedOut,"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
+      val expectedJson = s"""{"failed":$failed,"timed_out":$timedOut,"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"resource_names":["$RESOURCE_NAME"],"resource_store_names":["$STORE_NAME"],"resource_store_titles":["$RESOURCE_TITLE"],"resource_store_workspaces":["$WORKSPACE_NAME"],"resource_store_types":["$STORE_TYPE"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
 
       json mustEqual expectedJson
     }
@@ -430,4 +448,17 @@ private object ExtendedRequestDataTest {
   private val CENTROID_6 = "POINT (-97.04677502305373 32.90475063799967)"
 
   private val BBOX_CENTROID = "POINT (-117.1704589110484 37.06376884445468)"
+
+  private val LAYER_NAME = "foo:bar"
+  private val RESOURCE_NAME = "TEST_RESOURCE_NAME"
+  private val RESOURCE_TITLE = "TEST_RESOURCE_TITLE"
+  private val STORE_NAME = "TEST_STORE_NAME"
+  private val STORE_TYPE = "TEST_STORE_TYPE"
+  private val WORKSPACE_NAME = "TEST_WORKSPACE_NAME"
+
+  private val mockCatalog: Catalog = mock(classOf[Catalog])
+  private val mockResource: ResourceInfo = mock(classOf[ResourceInfo])
+  private val mockLayer: LayerInfo = mock(classOf[LayerInfo])
+  private val mockStore: StoreInfo = mock(classOf[StoreInfo])
+  private val mockWorkspace: WorkspaceInfo = mock(classOf[WorkspaceInfo])
 }

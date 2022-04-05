@@ -12,6 +12,7 @@ import com.google.gson._
 import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.lang3.StringUtils
+import org.geoserver.catalog.{Catalog, ResourceInfo, StoreInfo}
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTS
 import org.locationtech.geomesa.filter.FilterHelper
@@ -26,7 +27,7 @@ import javax.naming.ldap.LdapName
 import scala.collection.JavaConverters._
 import scala.util.{Failure, Success, Try}
 
-class ExtendedRequestData(requestData: RequestData) extends RequestData(requestData) {
+class ExtendedRequestData(requestData: RequestData, catalog: Catalog) extends RequestData(requestData) {
 
   import org.geomesa.gs.monitor.elastic.ExtendedRequestData._
 
@@ -79,6 +80,12 @@ class ExtendedRequestData(requestData: RequestData) extends RequestData(requestD
     distinguishedName
       .map(extractRdnValues(_, "OU"))
       .asNonEmptyJavaListOrNull
+
+  val resourceNames: java.util.List[String] = handleExtractResource(requestData, catalog, extractResourceName)
+  val resourceStoreNames: java.util.List[String] = handleExtractResource(requestData, catalog, extractStoreName)
+  val resourceStoreTitles: java.util.List[String] = handleExtractResource(requestData, catalog, extractResourceTitle)
+  val resourceStoreWorkspaces: java.util.List[String] = handleExtractResource(requestData, catalog, extractStoreWorkspace)
+  val resourceStoreTypes: java.util.List[String] = handleExtractResource(requestData, catalog, extractResourceStoreType)
 }
 
 object ExtendedRequestData extends LazyLogging {
@@ -154,6 +161,50 @@ object ExtendedRequestData extends LazyLogging {
 
   private def extractRdnValues(dn: LdapName, key: String): Seq[String] = {
     dn.getRdns.asScala.filter(_.getType.equalsIgnoreCase(key)).map(_.getValue.toString)
+  }
+
+  private def extractResourceInfo(resource: String, catalog: Catalog): ResourceInfo = {
+    catalog.getLayerByName(resource).getResource
+  }
+
+  private def extractResourceName(resource: String, catalog: Catalog): String = {
+    extractResourceInfo(resource, catalog)
+      .getName
+  }
+
+  private def extractResourceStore(resource: String, catalog: Catalog): StoreInfo = {
+    extractResourceInfo(resource, catalog)
+      .getStore
+  }
+
+  private def extractResourceTitle(resource: String, catalog: Catalog): String = {
+    extractResourceInfo(resource, catalog)
+      .getTitle
+  }
+
+  private def extractStoreName(resource: String, catalog: Catalog): String = {
+    extractResourceStore(resource, catalog)
+      .getName
+  }
+
+  private def extractStoreWorkspace(resource: String, catalog: Catalog): String = {
+    extractResourceStore(resource, catalog)
+      .getWorkspace
+      .getName
+  }
+
+  private def extractResourceStoreType(resource: String, catalog: Catalog): String = {
+    extractResourceStore(resource, catalog)
+      .getType
+  }
+
+  private def handleExtractResource(requestData: RequestData,
+                                    catalog: Catalog,
+                                    extractor: (String, Catalog) => String): java.util.List[String] = {
+    requestData.getResources
+      .asScala
+      .map(extractor(_, catalog))
+      .asJava
   }
 
   private implicit class TryExtensions[T](result: Try[T]) {

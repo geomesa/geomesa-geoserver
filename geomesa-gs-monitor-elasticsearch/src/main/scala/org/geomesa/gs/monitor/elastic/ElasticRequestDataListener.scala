@@ -17,6 +17,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 import org.elasticsearch.client.{Request, RestClient}
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
+import org.geoserver.catalog.{Catalog, ResourceInfo}
 import org.geoserver.monitor
 import org.geoserver.monitor.RequestData.Status
 import org.geoserver.monitor.RequestDataListener
@@ -28,7 +29,7 @@ import java.util.function.BiFunction
 import scala.collection.JavaConverters._
 import scala.concurrent.TimeoutException
 
-class ElasticRequestDataListener extends RequestDataListener
+class ElasticRequestDataListener(catalog: Catalog) extends RequestDataListener
   with ApplicationListener[ApplicationEvent] with LazyLogging {
 
   import org.geomesa.gs.monitor.elastic.ElasticRequestDataListener._
@@ -80,7 +81,7 @@ class ElasticRequestDataListener extends RequestDataListener
         val rd = writeQueue.take // block until data is available to send
 
         try {
-          putElasticsearch(new ExtendedRequestData(rd))
+          putElasticsearch(new ExtendedRequestData(rd, catalog))
           logger.info(s"Sent request '${rd.uid}' to Elasticsearch")
         } catch {
           case ex: Exception => logger.error(s"Failed to send request '${rd.uid}' to Elasticsearch: ${ex.getMessage}")

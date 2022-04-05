@@ -4,7 +4,9 @@
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
   <beans profile="elasticsearch">
-    <bean id="requestListener" class="org.geomesa.gs.monitor.elastic.ElasticRequestDataListener"/>
+    <bean id="requestListener" class="org.geomesa.gs.monitor.elastic.ElasticRequestDataListener">
+      <constructor-arg index="0" ref="catalog"/>
+    </bean>
   </beans>
 
 </beans>
