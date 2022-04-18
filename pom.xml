@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.geomesa.geoserver</groupId>
-    <artifactId>geomesa-geoserver</artifactId>
+    <artifactId>geomesa-geoserver_2.12</artifactId>
     <version>3.4.0-SNAPSHOT</version>
     <name>GeoMesa GeoServer Integration</name>
     <description>Software to help integrate GeoMesa and GeoServer</description>
@@ -61,12 +61,12 @@
     </modules>
 
     <properties>
-        <geomesa.version>3.4.0-SNAPSHOT</geomesa.version>
+        <geomesa.version>3.4.0</geomesa.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <scala.version>2.11.7</scala.version>
-        <scala.binary.version>2.11</scala.binary.version>
+        <scala.version>2.12.13</scala.version>
+        <scala.binary.version>2.12</scala.binary.version>
 
         <kafka.version>2.4.1</kafka.version>
 

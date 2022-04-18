@@ -4,11 +4,11 @@
 
     <parent>
         <groupId>org.geomesa.geoserver</groupId>
-        <artifactId>geomesa-geoserver</artifactId>
+        <artifactId>geomesa-geoserver_2.12</artifactId>
         <version>3.4.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>geomesa-gs-monitor-elasticsearch</artifactId>
+    <artifactId>geomesa-gs-monitor-elasticsearch_2.12</artifactId>
     <name>GeoMesa Elasticsearch Geoserver Monitor Extension</name>
 
     <properties>
