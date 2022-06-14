@@ -4,7 +4,7 @@
 
     <groupId>org.geomesa.geoserver</groupId>
     <artifactId>geomesa-geoserver_2.12</artifactId>
-    <version>3.4.1-SNAPSHOT</version>
+    <version>3.4.1</version>
     <name>GeoMesa GeoServer Integration</name>
     <description>Software to help integrate GeoMesa and GeoServer</description>
     <url>https://github.com/geomesa/geomesa-geoserver</url>
@@ -98,7 +98,7 @@
         <connection>scm:git:git@github.com:geomesa/geomesa-geoserver.git</connection>
         <developerConnection>scm:git:git@github.com:geomesa/geomesa-geoserver.git</developerConnection>
         <url>https://github.com/geomesa/geomesa-geoserver</url>
-        <tag>geomesa-geoserver-3.4.0</tag>
+        <tag>geomesa-geoserver_2.12-3.4.1</tag>
     </scm>
 
     <dependencies>
