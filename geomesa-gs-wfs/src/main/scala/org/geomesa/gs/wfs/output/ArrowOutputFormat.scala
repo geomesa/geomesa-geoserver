@@ -96,6 +96,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
     Option(options.get(Fields.DoublePass)).foreach { option =>
       hints.put(ARROW_DOUBLE_PASS, java.lang.Boolean.valueOf(option))
     }
+    Option(options.get(Fields.ProcessDeltas)).foreach { option =>
+      hints.put(ARROW_PROCESS_DELTAS, java.lang.Boolean.valueOf(option))
+    }
 
     // set hints into thread local state - this prevents any wrapping feature collections from messing with
     // the aggregation
@@ -167,5 +170,6 @@ object ArrowOutputFormat extends LazyLogging {
     val SortReverse           = "SORTREVERSE"
     val BatchSize             = "BATCHSIZE"
     val DoublePass            = "DOUBLEPASS"
+    val ProcessDeltas         = "PROCESSDELTAS"
   }
 }
