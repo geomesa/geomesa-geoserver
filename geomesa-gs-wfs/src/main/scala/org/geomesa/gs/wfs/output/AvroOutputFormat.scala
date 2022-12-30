@@ -8,17 +8,17 @@
 
 package org.geomesa.gs.wfs.output
 
-import java.io.OutputStream
-import java.util.Collections
-
 import org.geoserver.config.GeoServer
 import org.geoserver.ows.Response
 import org.geoserver.platform.Operation
 import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.simple.SimpleFeatureCollection
-import org.locationtech.geomesa.features.avro.AvroDataFileWriter
+import org.locationtech.geomesa.features.avro.io.AvroDataFileWriter
 import org.locationtech.geomesa.utils.io.WithClose
+
+import java.io.OutputStream
+import java.util.Collections
 
 class AvroOutputFormat(gs: GeoServer)
     extends WFSGetFeatureOutputFormat(gs, Collections.singleton("application/vnd.avro")) {

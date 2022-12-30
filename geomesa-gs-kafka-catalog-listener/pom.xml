@@ -14,7 +14,7 @@
         <dependency>
             <groupId>org.geoserver</groupId>
             <artifactId>gs-rest</artifactId>
-            <version>${gs.version}</version>
+            <version>${geoserver.version}</version>
         </dependency>
         <dependency>
             <groupId>org.locationtech.geomesa</groupId>
@@ -37,14 +37,5 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
-
-    <build>
-        <plugins>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-assembly-plugin</artifactId>
-            </plugin>
-        </plugins>
-    </build>
 
 </project>

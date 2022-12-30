@@ -1,17 +1,77 @@
-binary_version=$1
-if [[ $binary_version = "2.11" ]]; then
-  full_version="2.11.7"
-elif [[ $binary_version = "2.12" ]]; then
-  full_version="2.12.13"
-else
-  echo "Scala version must be 2.11 or 2.12 - invalid scala version: $binary_version"
+#!/usr/bin/env bash
+
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+set -e
+
+VALID_VERSIONS=("2.12" "2.13")
+FULL_VERSIONS=("2.12.13" "2.13.10")
+
+usage() {
+  echo "Usage: $(basename $0) [-h|--help] <version>
+where :
+  -h| --help Display this help text
+  valid version values : ${VALID_VERSIONS[*]}
+" 1>&2
+  exit 1
+}
+
+if [[ ($# -ne 1) || ( $1 == "--help") ||  $1 == "-h" ]]; then
+  usage
+fi
+
+BASEDIR=$(dirname $0)/..
+TO_VERSION=$1
+FULL_VERSION=""
+
+for i in "${!VALID_VERSIONS[@]}"; do
+  if [[ $TO_VERSION == ${VALID_VERSIONS[$i]} ]]; then
+    FULL_VERSION="${FULL_VERSIONS[$i]}"
+  fi
+done
+
+if [[ -z "$FULL_VERSION" ]]; then
+  echo "Invalid Scala version: $1. Valid versions: ${VALID_VERSIONS[*]}" 1>&2
   exit 1
 fi
 
-sed -i -e "s#<scala.version>.*</scala.version>#<scala.version>${full_version}</scala.version>#" \
-  -e "s#<scala.binary.version>.*</scala.binary.version>#<scala.binary.version>${binary_version}</scala.binary.version>#" pom.xml
+# pull out the scala version from the main artifactId
+FROM_VERSION="$(sed -n '/geomesa-geoserver_/ s| *<artifactId>geomesa-geoserver_\([0-9]\.[0-9][0-9]*\)</artifactId>|\1|p' $BASEDIR/pom.xml)"
 
-for file in $(find . -name pom.xml); do
-  sed -i -e "s#<artifactId>\(geomesa-gs-[a-z-]*\).*</artifactId>#<artifactId>\1_${binary_version}</artifactId>#" \
-    -e "s#<artifactId>\(geomesa-geoserver\).*</artifactId>#<artifactId>\1_${binary_version}</artifactId>#" $file
-done
+sed_i() {
+  sed -e "$1" "$2" > "$2.tmp" && mv "$2.tmp" "$2"
+}
+
+export -f sed_i
+
+find "$BASEDIR" -name 'pom.xml' -not -path '*target*' -print \
+  -exec bash -c "sed_i 's/\(artifactId.*\)_'$FROM_VERSION'/\1_'$TO_VERSION'/g' {}" \;
+
+# update <scala.binary.version> in parent POM
+# match any scala binary version to ensure idempotency
+sed_i '1,/<scala\.binary\.version>[0-9]\.[0-9][0-9]*</s/<scala\.binary\.version>[0-9]\.[0-9][0-9]*</<scala.binary.version>'$TO_VERSION'</' \
+  "$BASEDIR/pom.xml"
+
+# update <scala.version> in parent POM
+sed_i '1,/<scala\.version>[0-9]\.[0-9][0-9]*\.[0-9][0-9]*</s/<scala\.version>[0-9]\.[0-9][0-9]*\.[0-9][0-9]*</<scala.version>'$FULL_VERSION'</' \
+  "$BASEDIR/pom.xml"
+
+# Update enforcer rules
+sed_i 's|<exclude>\*:\*_'$TO_VERSION'</exclude>|<exclude>*:*_'$FROM_VERSION'</exclude>|' "$BASEDIR/pom.xml"
+sed_i 's|<regex>'$FROM_VERSION'\.\*</regex>|<regex>'$TO_VERSION'.*</regex>|' "$BASEDIR/pom.xml"
+sed_i 's|<regex>'$FROM_VERSION'</regex>|<regex>'$TO_VERSION'</regex>|' "$BASEDIR/pom.xml"
