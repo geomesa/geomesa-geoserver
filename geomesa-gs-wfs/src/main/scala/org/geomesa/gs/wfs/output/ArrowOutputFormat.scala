@@ -122,8 +122,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
               val batchSize = hints.getArrowBatchSize.getOrElse(ArrowProperties.BatchSize.get.toInt)
 
               val preSorted = for (field <- sortField; reverse <- sortReverse.orElse(Some(false))) yield {
-                request.getQueries.get(i).getSortBy.asScala match {
-                  case Seq(sort) =>
+                request.getQueries.get(i).getSortBy match {
+                  case list if list.size == 1 =>
+                    val sort = list.get(0)
                     Option(sort.getPropertyName).exists(_.getPropertyName == field) &&
                         (sort.getSortOrder == SortOrder.DESCENDING) == reverse
                   case _ => false

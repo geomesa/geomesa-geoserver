@@ -20,12 +20,12 @@ import org.geoserver.wps.ppio.ProcessParameterIO.PPIODirection
 class BinaryViewerProcessIO extends BinaryPPIO(classOf[java.util.Iterator[Array[Byte]]],
   classOf[java.util.Iterator[Array[Byte]]], BinaryViewerOutputFormat.MIME_TYPE) {
 
+  import scala.collection.JavaConverters._
+
   override def getDirection: PPIODirection = PPIODirection.ENCODING
 
-  override def encode(value: AnyRef, os: OutputStream): Unit = {
-    import scala.collection.JavaConversions._
-    value.asInstanceOf[java.util.Iterator[Array[Byte]]].foreach(os.write)
-  }
+  override def encode(value: AnyRef, os: OutputStream): Unit =
+    value.asInstanceOf[java.util.Iterator[Array[Byte]]].asScala.foreach(os.write)
 
   override def decode(input: InputStream): AnyRef = throw new NotImplementedError("Only supports encode")
 

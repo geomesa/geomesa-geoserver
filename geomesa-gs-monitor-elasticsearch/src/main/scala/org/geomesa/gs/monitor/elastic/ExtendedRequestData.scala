@@ -160,7 +160,7 @@ object ExtendedRequestData extends LazyLogging {
   }
 
   private def extractRdnValues(dn: LdapName, key: String): Seq[String] = {
-    dn.getRdns.asScala.filter(_.getType.equalsIgnoreCase(key)).map(_.getValue.toString)
+    dn.getRdns.asScala.filter(_.getType.equalsIgnoreCase(key)).map(_.getValue.toString).toSeq
   }
 
   private def extractResourceInfo(resource: String, catalog: Catalog): ResourceInfo = {

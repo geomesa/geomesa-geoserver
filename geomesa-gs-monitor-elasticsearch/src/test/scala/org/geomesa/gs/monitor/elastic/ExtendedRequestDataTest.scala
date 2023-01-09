@@ -122,7 +122,7 @@ class ExtendedRequestDataTest extends Specification {
         val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedAttributes = Seq("attr1")
-        val attributes = erd.queryAttributes.asScala
+        val attributes = erd.queryAttributes.asScala.toSeq
 
         expectedAttributes must containTheSameElementsAs(attributes)
       }
@@ -134,7 +134,7 @@ class ExtendedRequestDataTest extends Specification {
         val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedAttributes = Seq("attr1", "attr2")
-        val attributes = erd.queryAttributes.asScala
+        val attributes = erd.queryAttributes.asScala.toSeq
 
         expectedAttributes must containTheSameElementsAs(attributes)
       }
