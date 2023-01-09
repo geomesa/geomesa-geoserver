@@ -1,4 +1,4 @@
-name: build-and-test
+name: build-and-test_2.13
 
 on:
   push:
@@ -22,6 +22,8 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
+      - name: Set Scala version
+        run: ./build/change-scala-version.sh 2.13
       - name: Build with Maven
         run: mvn clean install
       - name: Remove geomesa artifacts

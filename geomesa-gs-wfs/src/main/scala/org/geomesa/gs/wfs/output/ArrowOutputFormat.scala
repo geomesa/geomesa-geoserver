@@ -8,8 +8,6 @@
 
 package org.geomesa.gs.wfs.output
 
-import java.io.{BufferedOutputStream, OutputStream}
-
 import com.typesafe.scalalogging.LazyLogging
 import org.geomesa.gs.wfs.output.ArrowOutputFormat.Fields
 import org.geoserver.config.GeoServer
@@ -30,6 +28,7 @@ import org.locationtech.geomesa.utils.io.WithClose
 import org.opengis.feature.simple.SimpleFeatureType
 import org.opengis.filter.sort.SortOrder
 
+import java.io.{BufferedOutputStream, OutputStream}
 import scala.collection.JavaConverters._
 
 /**
@@ -62,6 +61,8 @@ class ArrowOutputFormat(geoServer: GeoServer)
                      output: OutputStream,
                      getFeature: Operation): Unit = {
 
+    import org.locationtech.geomesa.index.conf.QueryHints.RichHints
+
     // format_options flags for customizing the request
     val request = GetFeatureRequest.adapt(getFeature.getParameters()(0))
 
@@ -78,9 +79,6 @@ class ArrowOutputFormat(geoServer: GeoServer)
     Option(options.get(Fields.DictionaryFields)).foreach { option =>
       hints.put(ARROW_DICTIONARY_FIELDS, option)
     }
-    Option(options.get(Fields.UseCachedDictionaries)).foreach { option =>
-      hints.put(ARROW_DICTIONARY_CACHED, java.lang.Boolean.valueOf(option))
-    }
     Option(options.get(Fields.FormatVersion)).foreach { option =>
       hints.put(ARROW_FORMAT_VERSION, option)
     }
@@ -93,9 +91,6 @@ class ArrowOutputFormat(geoServer: GeoServer)
     Option(options.get(Fields.BatchSize)).foreach { option =>
       hints.put(ARROW_BATCH_SIZE, java.lang.Integer.valueOf(option))
     }
-    Option(options.get(Fields.DoublePass)).foreach { option =>
-      hints.put(ARROW_DOUBLE_PASS, java.lang.Boolean.valueOf(option))
-    }
     Option(options.get(Fields.ProcessDeltas)).foreach { option =>
       hints.put(ARROW_PROCESS_DELTAS, java.lang.Boolean.valueOf(option))
     }
@@ -106,10 +101,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
     try {
       WithClose(new BufferedOutputStream(output)) { bos =>
-        import org.locationtech.geomesa.index.conf.QueryHints.RichHints
-        import org.locationtech.geomesa.utils.conversions.ScalaImplicits.RichTraversableOnce
-
-        featureCollections.getFeatures.asScala.foreachIndex { case (fc, i) =>
+        var i = -1
+        featureCollections.getFeatures.asScala.foreach { fc =>
+          i += 1
           WithClose(CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())) { iter =>
             // this check needs to be done *after* getting the feature iterator so that the return sft will be set
             val aggregated = fc.getSchema == org.locationtech.geomesa.arrow.ArrowEncodedSft
@@ -122,16 +116,15 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
               val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid)
               val dictionaries = hints.getArrowDictionaryFields
-              val cacheDictionaries = Some(hints.isArrowCachedDictionaries)
               val version = hints.getArrowFormatVersion.getOrElse(FormatVersion.ArrowFormatVersion.get)
               val sortField = hints.getArrowSort.map(_._1)
               val sortReverse = hints.getArrowSort.map(_._2)
               val batchSize = hints.getArrowBatchSize.getOrElse(ArrowProperties.BatchSize.get.toInt)
-              val doublePass = hints.isArrowDoublePass
 
               val preSorted = for (field <- sortField; reverse <- sortReverse.orElse(Some(false))) yield {
-                request.getQueries.get(i).getSortBy.asScala match {
-                  case Seq(sort) =>
+                request.getQueries.get(i).getSortBy match {
+                  case list if list.size == 1 =>
+                    val sort = list.get(0)
                     Option(sort.getPropertyName).exists(_.getPropertyName == field) &&
                         (sort.getSortOrder == SortOrder.DESCENDING) == reverse
                   case _ => false
@@ -139,7 +132,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
               }
 
               val visitor = new ArrowVisitor(fc.getSchema.asInstanceOf[SimpleFeatureType], encoding, version,
-                dictionaries, cacheDictionaries, sortField, sortReverse, preSorted.getOrElse(false), batchSize, doublePass)
+                dictionaries, sortField, sortReverse, preSorted.getOrElse(false), batchSize)
 
               iter.foreach(visitor.visit)
 
@@ -164,12 +157,10 @@ object ArrowOutputFormat extends LazyLogging {
     val IncludeFids           = "INCLUDEFIDS"
     val ProxyFids             = "PROXYFIDS"
     val DictionaryFields      = "DICTIONARYFIELDS"
-    val UseCachedDictionaries = "USECACHEDDICTIONARIES"
     val FormatVersion         = "FORMATVERSION"
     val SortField             = "SORTFIELD"
     val SortReverse           = "SORTREVERSE"
     val BatchSize             = "BATCHSIZE"
-    val DoublePass            = "DOUBLEPASS"
     val ProcessDeltas         = "PROCESSDELTAS"
   }
 }

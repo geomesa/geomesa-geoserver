@@ -8,11 +8,6 @@
 
 package org.geomesa.gs.wfs.output
 
-import java.io.{BufferedOutputStream, OutputStream}
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.{CountDownLatch, Executors}
-import javax.xml.namespace.QName
-
 import com.typesafe.scalalogging.LazyLogging
 import net.opengis.wfs.{GetFeatureType => GetFeatureTypeV1, QueryType => QueryTypeV1}
 import net.opengis.wfs20.{GetFeatureType => GetFeatureTypeV2, QueryType => QueryTypeV2}
@@ -30,7 +25,10 @@ import org.locationtech.geomesa.utils.bin.BinaryOutputEncoder.EncodingOptions
 import org.locationtech.geomesa.utils.bin.{AxisOrder, BinaryOutputEncoder}
 import org.locationtech.geomesa.utils.collection.{CloseableIterator, SelfClosingIterator}
 
-import scala.collection.JavaConversions._
+import java.io.{BufferedOutputStream, OutputStream}
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{CountDownLatch, Executors}
+import javax.xml.namespace.QName
 
 /**
  * Output format for wfs requests that encodes features into a binary format.
@@ -45,9 +43,11 @@ import scala.collection.JavaConversions._
  * @param geoServer handle to geoserver
  */
 class BinaryViewerOutputFormat(geoServer: GeoServer)
-    extends WFSGetFeatureOutputFormat(geoServer, Set("bin", BinaryViewerOutputFormat.MIME_TYPE)) with LazyLogging {
+    extends WFSGetFeatureOutputFormat(geoServer, BinaryViewerOutputFormat.OutputFormatStrings) with LazyLogging {
 
   import BinaryViewerOutputFormat._
+
+  import scala.collection.JavaConverters._
 
   override def getMimeType(value: AnyRef, operation: Operation): String = MIME_TYPE
 
@@ -98,7 +98,7 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
     QueryPlanner.setPerThreadQueryHints(hints)
 
     try {
-      featureCollections.getFeatures.foreach { fc =>
+      featureCollections.getFeatures.asScala.foreach { fc =>
         val iter = CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())
 
         // this check needs to be done *after* getting the feature iterator so that the return sft will be set
@@ -203,6 +203,8 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
 
 object BinaryViewerOutputFormat extends LazyLogging {
 
+  import scala.collection.JavaConverters._
+
   val MIME_TYPE = "application/vnd.binary-viewer"
   val FILE_EXTENSION = "bin"
   val TRACK_ID_FIELD = "TRACKID"
@@ -227,6 +229,8 @@ object BinaryViewerOutputFormat extends LazyLogging {
   val srsVersionOnePrefix = "http://www.opengis.net/gml/srs/epsg.xml#"
   val srsVersionOnePlusPrefix = "urn:x-ogc:def:crs:epsg:"
   val srsNonStandardPrefix = "epsg:"
+
+  val OutputFormatStrings: java.util.Set[String] = Set("bin", BinaryViewerOutputFormat.MIME_TYPE).asJava
 
   /**
    * Determines the order of lat/lon in simple features returned by this request.
@@ -256,11 +260,11 @@ object BinaryViewerOutputFormat extends LazyLogging {
   def getTypeName(getFeature: Operation): Option[QName] = {
     val typeNamesV2 = getFeatureTypeV2(getFeature)
         .flatMap(getQueryType)
-        .map(_.getTypeNames.toList)
+        .map(_.getTypeNames.asScala.toSeq)
         .getOrElse(Seq.empty)
     val typeNamesV1 = getFeatureTypeV1(getFeature)
         .flatMap(getQueryType)
-        .map(_.getTypeName.toList)
+        .map(_.getTypeName.asScala.toSeq)
         .getOrElse(Seq.empty)
     val typeNames = typeNamesV2 ++ typeNamesV1
     if (typeNames.lengthCompare(1) > 0) {
@@ -322,9 +326,9 @@ object BinaryViewerOutputFormat extends LazyLogging {
    * @return
    */
   def getQueryType(getFeatureType: GetFeatureTypeV1): Option[QueryTypeV1] =
-    getFeatureType.getQuery.iterator()
-        .find(_.isInstanceOf[QueryTypeV1])
-        .map(_.asInstanceOf[QueryTypeV1])
+    getFeatureType.getQuery.iterator().asScala.collectFirst {
+      case q: QueryTypeV1 => q
+    }
 
   /**
    * Pull out query object from request
@@ -333,7 +337,7 @@ object BinaryViewerOutputFormat extends LazyLogging {
    * @return
    */
   def getQueryType(getFeatureType: GetFeatureTypeV2): Option[QueryTypeV2] =
-    getFeatureType.getAbstractQueryExpressionGroup.iterator()
-        .find(_.getValue.isInstanceOf[QueryTypeV2])
-        .map(_.getValue.asInstanceOf[QueryTypeV2])
+    getFeatureType.getAbstractQueryExpressionGroup.iterator().asScala.collectFirst {
+      case q: QueryTypeV2 => q
+    }
 }

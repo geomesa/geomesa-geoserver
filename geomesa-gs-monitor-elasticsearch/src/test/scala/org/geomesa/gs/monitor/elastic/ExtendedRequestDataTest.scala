@@ -39,8 +39,10 @@ class ExtendedRequestDataTest extends Specification {
     when(mockWorkspace.getName).thenReturn(WORKSPACE_NAME)
   }
 
+  step(prepareMockCatalog())
+
   "ExtendedRequestData" should {
-    step(prepareMockCatalog())
+
     "set its failure status" >> {
       "when there is no error" in {
         val rd = new RequestData
@@ -120,7 +122,7 @@ class ExtendedRequestDataTest extends Specification {
         val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedAttributes = Seq("attr1")
-        val attributes = erd.queryAttributes.asScala
+        val attributes = erd.queryAttributes.asScala.toSeq
 
         expectedAttributes must containTheSameElementsAs(attributes)
       }
@@ -132,7 +134,7 @@ class ExtendedRequestDataTest extends Specification {
         val erd = new ExtendedRequestData(rd, mockCatalog)
 
         val expectedAttributes = Seq("attr1", "attr2")
-        val attributes = erd.queryAttributes.asScala
+        val attributes = erd.queryAttributes.asScala.toSeq
 
         expectedAttributes must containTheSameElementsAs(attributes)
       }
@@ -421,7 +423,7 @@ class ExtendedRequestDataTest extends Specification {
 
       val gson = ExtendedRequestData.getGson(excludedFields)
       val json = gson.toJson(erd)
-      val expectedJson = s"""{"failed":$failed,"timed_out":$timedOut,"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"resource_names":["$RESOURCE_NAME"],"resource_store_names":["$STORE_NAME"],"resource_store_titles":["$RESOURCE_TITLE"],"resource_store_workspaces":["$WORKSPACE_NAME"],"resource_store_types":["$STORE_TYPE"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString}"}"""
+      val expectedJson = s"""{"failed":$failed,"timed_out":$timedOut,"bbox_centroid":"$BBOX_CENTROID","query_attributes":["$attrStr"],"query_centroids":["$CENTROID_3","$CENTROID_5"],"common_names":["$cnStr"],"organizations":["$oStr"],"organizational_units":["$ouStr"],"resource_names":["$RESOURCE_NAME"],"resource_store_names":["$STORE_NAME"],"resource_store_titles":["$RESOURCE_TITLE"],"resource_store_workspaces":["$WORKSPACE_NAME"],"resource_store_types":["$STORE_TYPE"],"status":"$status","category":"$category","query_string":"$queryString","body":"$bodyStr","body_content_length":$bodyContentLength,"start_time":${startTime.getTime},"end_time":${endTime.getTime},"total_time":$totalTime,"remote_user":"$remoteUser","host":"$host","service":"$service","resources":["$resourceStr"],"error":"$errorStr","response_status":$responseStatus,"bbox":"${bbox.toString.replaceAllLiterally("\"", "\\\"")}"}"""
 
       json mustEqual expectedJson
     }
