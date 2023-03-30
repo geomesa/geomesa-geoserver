@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.geomesa.geoserver</groupId>
         <artifactId>geomesa-geoserver_2.12</artifactId>
-        <version>4.0.0</version>
+        <version>4.0.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>geomesa-gs-styling_2.12</artifactId>
