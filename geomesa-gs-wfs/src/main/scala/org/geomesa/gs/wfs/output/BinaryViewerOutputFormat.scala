@@ -18,8 +18,8 @@ import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.Version
+import org.geotools.util.factory.Hints
 import org.locationtech.geomesa.index.conf.QueryHints._
-import org.locationtech.geomesa.index.planning.QueryPlanner
 import org.locationtech.geomesa.index.utils.bin.BinSorter
 import org.locationtech.geomesa.utils.bin.BinaryOutputEncoder.EncodingOptions
 import org.locationtech.geomesa.utils.bin.{AxisOrder, BinaryOutputEncoder}
@@ -44,7 +44,8 @@ import javax.xml.namespace.QName
  * @param geoServer handle to geoserver
  */
 class BinaryViewerOutputFormat(geoServer: GeoServer)
-    extends WFSGetFeatureOutputFormat(geoServer, BinaryViewerOutputFormat.OutputFormatStrings) with LazyLogging {
+    extends WFSGetFeatureOutputFormat(geoServer, BinaryViewerOutputFormat.OutputFormatStrings)
+        with FormatOptionsCallback with LazyLogging {
 
   import BinaryViewerOutputFormat._
 
@@ -60,142 +61,149 @@ class BinaryViewerOutputFormat(geoServer: GeoServer)
     val gfr = GetFeatureRequest.adapt(operation.getParameters()(0))
     val name = Option(gfr.getHandle).getOrElse(gfr.getQueries.get(0).getTypeNames.get(0).getLocalPart)
     // if they have requested a label, then it will be 24 byte encoding (assuming the field exists...)
-    val size = if (gfr.getFormatOptions.containsKey(LABEL_FIELD)) "24" else "16"
+    val size = if (gfr.getFormatOptions.containsKey(LABEL_FIELD)) { "24" } else { "16" }
     s"$name.$FILE_EXTENSION$size"
   }
 
-  override def write(featureCollections: FeatureCollectionResponse,
-                     output: OutputStream,
-                     getFeature: Operation): Unit = {
+  override def write(
+      featureCollections: FeatureCollectionResponse,
+      output: OutputStream,
+      getFeature: Operation): Unit = {
 
-    // format_options flags for customizing the request
-    val request = GetFeatureRequest.adapt(getFeature.getParameters()(0))
-    val trackId = Option(request.getFormatOptions.get(TRACK_ID_FIELD).asInstanceOf[String]).getOrElse {
-      throw new IllegalArgumentException(s"$TRACK_ID_FIELD is a required format option")
-    }
-    val geom = Option(request.getFormatOptions.get(GEOM_FIELD).asInstanceOf[String])
-    val dtg = Option(request.getFormatOptions.get(DATE_FIELD).asInstanceOf[String])
-    val label = Option(request.getFormatOptions.get(LABEL_FIELD).asInstanceOf[String])
-    val binSize = if (label.isDefined) 24 else 16
+    import org.locationtech.geomesa.index.conf.QueryHints.RichHints
 
-    // depending on srs requested and wfs versions, axis order can be flipped
-    val axisOrder = checkAxisOrder(getFeature)
-    val requestedSort =
-      Option(request.getFormatOptions.get(SORT_FIELD).asInstanceOf[String]).exists(_.toBoolean)
+    val request: GetFeatureRequest = GetFeatureRequest.adapt(getFeature.getParameters()(0))
+
+    // whether to do final merge sorting here or let the caller handle it
+    val mergeSort =
+      Option(request.getFormatOptions.get(SORT_FIELD)).exists(_.toString.toBoolean) ||
+          sys.props.getOrElse(SORT_SYS_PROP, DEFAULT_SORT).toBoolean
 
     val bos = new BufferedOutputStream(output)
-
-    val sort = requestedSort || sys.props.getOrElse(SORT_SYS_PROP, DEFAULT_SORT).toBoolean
-    val tserverSort = sort || sys.props.getOrElse(PARTIAL_SORT_SYS_PROP, DEFAULT_SORT).toBoolean
-    val batchSize = sys.props.getOrElse(BATCH_SIZE_SYS_PROP, DEFAULT_BATCH_SIZE).toInt
-
-    // set hints into thread local state - this prevents any wrapping feature collections from messing with
-    // the aggregation
-    val hints = {
-      val some = Map(BIN_TRACK -> trackId, BIN_SORT -> tserverSort, BIN_BATCH_SIZE -> batchSize)
-      val opts = Map(BIN_GEOM -> geom, BIN_DTG -> dtg, BIN_LABEL -> label).collect { case (k, Some(v)) => k -> v }
-      (some ++ opts).asInstanceOf[Map[AnyRef, AnyRef]]
-    }
-    QueryPlanner.setPerThreadQueryHints(hints)
-
-    try {
-      featureCollections.getFeatures.asScala.foreach { fc =>
-        WithClose(CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())) { iter =>
-          // this check needs to be done *after* getting the feature iterator so that the return sft will be set
-          val schema = fc.asInstanceOf[SimpleFeatureCollection].getSchema
-          val aggregated = schema == BinaryOutputEncoder.BinEncodedSft
-          if (aggregated) {
-            // for accumulo, encodings have already been computed in the tservers
-            val aggregates = iter.map(_.getAttribute(BinaryOutputEncoder.BIN_ATTRIBUTE_INDEX).asInstanceOf[Array[Byte]])
-
-            if (sort) {
-              // we do some asynchronous pre-merging while we are waiting for all the data to come in
-              // the pre-merging is expensive, as it merges in memory
-              // the final merge doesn't have to allocate space for merging, as it writes directly to the output
-              val numThreads = sys.props.getOrElse(SORT_THREADS_SYS_PROP, DEFAULT_SORT_THREADS).toInt
-              val executor = Executors.newFixedThreadPool(numThreads)
-              // access to this is manually synchronized so we can pull off 2 items at once
-              val mergeQueue = collection.mutable.PriorityQueue.empty[Array[Byte]](new Ordering[Array[Byte]] {
-                // shorter first
-                override def compare(x: Array[Byte], y: Array[Byte]): Int = y.length.compareTo(x.length)
-              })
-              // holds buffers we don't want to consider anymore due to there size - also manually synchronized
-              val doneMergeQueue = collection.mutable.ArrayBuffer.empty[Array[Byte]]
-              val maxSizeToMerge = sys.props.getOrElse(SORT_HEAP_SYS_PROP, DEFAULT_SORT_HEAP).toInt
-              val latch = new CountDownLatch(numThreads)
-              val keepMerging = new AtomicBoolean(true)
-              var i = 0
-              while (i < numThreads) {
-                executor.submit(new Runnable() {
-                  override def run(): Unit = {
-                    while (keepMerging.get()) {
-                      // pull out the 2 smallest items to merge
-                      // the final merge has to compare the first item in each buffer
-                      // so reducing the number of buffers helps
-                      val (left, right) = mergeQueue.synchronized {
-                        if (mergeQueue.length > 1) {
-                          (mergeQueue.dequeue(), mergeQueue.dequeue())
-                        } else {
-                          (null, null)
-                        }
-                      }
-                      if (left != null) { // right will also not be null
-                        if (right.length > maxSizeToMerge) {
-                          if (left.length > maxSizeToMerge) {
-                            doneMergeQueue.synchronized(doneMergeQueue.append(left, right))
-                          } else {
-                            doneMergeQueue.synchronized(doneMergeQueue.append(right))
-                            mergeQueue.synchronized(mergeQueue.enqueue(left))
-                          }
-                          Thread.sleep(10)
-                        } else {
-                          val result = BinSorter.mergeSort(left, right, binSize)
-                          mergeQueue.synchronized(mergeQueue.enqueue(result))
-                        }
-                      } else {
-                        // if we didn't find anything to merge, wait a bit before re-checking
-                        Thread.sleep(10)
-                      }
-                    }
-                    latch.countDown() // indicate this thread is done
-                  }
-                })
-                i += 1
-              }
-              // queue up the aggregates coming in so that they can be processed by the merging threads above
-              aggregates.foreach(a => mergeQueue.synchronized(mergeQueue.enqueue(a)))
-              // once all data is back from the tservers, stop pre-merging and start streaming back to the client
-              keepMerging.set(false)
-              executor.shutdown() // this won't stop the threads, but will cleanup once they're done
-              latch.await() // wait for the merge threads to finish
-              // get an iterator that returns in sorted order
-              val bins = BinSorter.mergeSort((doneMergeQueue ++ mergeQueue).iterator, binSize)
-              while (bins.hasNext) {
-                val (aggregate, offset) = bins.next()
-                bos.write(aggregate, offset, binSize)
-              }
-            } else {
-              // no sort, just write directly to the output
-              aggregates.foreach(bos.write)
-            }
+    featureCollections.getFeatures.asScala.foreach { fc =>
+      WithClose(CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())) { iter =>
+        val schema = fc.asInstanceOf[SimpleFeatureCollection].getSchema
+        val aggregated = schema == BinaryOutputEncoder.BinEncodedSft
+        if (aggregated) {
+          // encodings have already been computed
+          val aggregates = iter.map(_.getAttribute(BinaryOutputEncoder.BIN_ATTRIBUTE_INDEX).asInstanceOf[Array[Byte]])
+          if (mergeSort) {
+            sort(request, aggregates, bos)
           } else {
-            logger.warn(s"Server side bin aggregation is not enabled for feature collection '${fc.getClass}'")
-            // for non-accumulo fs we do the encoding here
-            val geomIndex = geom.map(schema.indexOf).filter(_ != -1)
-            val dtgIndex = dtg.map(schema.indexOf).filter(_ != -1)
-            val trackIndex = Some(trackId).map(schema.indexOf).filter(_ != -1)
-            val labelIndex = label.map(schema.indexOf).filter(_ != -1)
-            val options = EncodingOptions(geomIndex, dtgIndex, trackIndex, labelIndex, Some(axisOrder))
-            val encoder = BinaryOutputEncoder(schema, options)
-            encoder.encode(iter, bos, sort)
+            // no sort, just write directly to the output
+            aggregates.foreach(bos.write)
           }
+        } else {
+          logger.warn(s"Server side bin aggregation is not enabled for feature collection '${fc.getClass}'")
+          val hints = new Hints()
+          populateFormatOptions(request, hints)
+          // for non-geomesa fs we do the encoding here
+          val trackIndex = Some(hints.getBinTrackIdField).map(schema.indexOf).filter(_ != -1)
+          val geomIndex = hints.getBinGeomField.map(schema.indexOf).filter(_ != -1)
+          val dtgIndex = hints.getBinDtgField.map(schema.indexOf).filter(_ != -1)
+          val labelIndex = hints.getBinLabelField.map(schema.indexOf).filter(_ != -1)
+          // depending on srs requested and wfs versions, axis order can be flipped
+          val axisOrder = checkAxisOrder(getFeature)
+          val options = EncodingOptions(geomIndex, dtgIndex, trackIndex, labelIndex, Some(axisOrder))
+          BinaryOutputEncoder(schema, options).encode(iter, bos, mergeSort)
         }
       }
-    } finally {
-      QueryPlanner.clearPerThreadQueryHints()
     }
-    bos.flush()
     // none of the implementations in geoserver call 'close' on the output stream
+    bos.flush()
+  }
+
+  override protected def populateFormatOptions(request: GetFeatureRequest, hints: Hints): Unit = {
+    val options = request.getFormatOptions
+    hints.put(BIN_TRACK, Option(options.get(TRACK_ID_FIELD)).map(_.toString).getOrElse {
+      throw new IllegalArgumentException(s"$TRACK_ID_FIELD is a required format option")
+    })
+    Option(options.get(GEOM_FIELD)).map(_.toString).foreach(hints.put(BIN_GEOM, _))
+    Option(options.get(DATE_FIELD)).map(_.toString).foreach(hints.put(BIN_DTG, _))
+    Option(options.get(LABEL_FIELD)).map(_.toString).foreach(hints.put(BIN_LABEL, _))
+
+    hints.put(BIN_SORT,
+      Option(options.get(SORT_FIELD).asInstanceOf[String]).exists(_.toBoolean) ||
+          sys.props.getOrElse(SORT_SYS_PROP, DEFAULT_SORT).toBoolean ||
+          sys.props.getOrElse(PARTIAL_SORT_SYS_PROP, DEFAULT_SORT).toBoolean)
+
+    hints.put(BIN_BATCH_SIZE, sys.props.getOrElse(BATCH_SIZE_SYS_PROP, DEFAULT_BATCH_SIZE).toInt)
+  }
+
+  /**
+   * Perform a merge sort on the aggregated results
+   *
+   * @param request request
+   * @param aggregates aggregated partial results
+   * @param os output stream
+   */
+  private def sort(request: GetFeatureRequest, aggregates: Iterator[Array[Byte]], os: OutputStream): Unit = {
+    val binSize = if (request.getFormatOptions.get(LABEL_FIELD) == null) { 16 } else { 24 }
+    // we do some asynchronous pre-merging while we are waiting for all the data to come in
+    // the pre-merging is expensive, as it merges in memory
+    // the final merge doesn't have to allocate space for merging, as it writes directly to the output
+    val numThreads = sys.props.getOrElse(SORT_THREADS_SYS_PROP, DEFAULT_SORT_THREADS).toInt
+    val executor = Executors.newFixedThreadPool(numThreads)
+    // access to this is manually synchronized so we can pull off 2 items at once
+    val mergeQueue = collection.mutable.PriorityQueue.empty[Array[Byte]](new Ordering[Array[Byte]] {
+      // shorter first
+      override def compare(x: Array[Byte], y: Array[Byte]): Int = y.length.compareTo(x.length)
+    })
+    // holds buffers we don't want to consider anymore due to there size - also manually synchronized
+    val doneMergeQueue = collection.mutable.ArrayBuffer.empty[Array[Byte]]
+    val maxSizeToMerge = sys.props.getOrElse(SORT_HEAP_SYS_PROP, DEFAULT_SORT_HEAP).toInt
+    val latch = new CountDownLatch(numThreads)
+    val keepMerging = new AtomicBoolean(true)
+    var i = 0
+    while (i < numThreads) {
+      executor.submit(new Runnable() {
+        override def run(): Unit = {
+          while (keepMerging.get()) {
+            // pull out the 2 smallest items to merge
+            // the final merge has to compare the first item in each buffer
+            // so reducing the number of buffers helps
+            val (left, right) = mergeQueue.synchronized {
+              if (mergeQueue.length > 1) {
+                (mergeQueue.dequeue(), mergeQueue.dequeue())
+              } else {
+                (null, null)
+              }
+            }
+            if (left != null) { // right will also not be null
+              if (right.length > maxSizeToMerge) {
+                if (left.length > maxSizeToMerge) {
+                  doneMergeQueue.synchronized(doneMergeQueue.append(left, right))
+                } else {
+                  doneMergeQueue.synchronized(doneMergeQueue.append(right))
+                  mergeQueue.synchronized(mergeQueue.enqueue(left))
+                }
+                Thread.sleep(10)
+              } else {
+                val result = BinSorter.mergeSort(left, right, binSize)
+                mergeQueue.synchronized(mergeQueue.enqueue(result))
+              }
+            } else {
+              // if we didn't find anything to merge, wait a bit before re-checking
+              Thread.sleep(10)
+            }
+          }
+          latch.countDown() // indicate this thread is done
+        }
+      })
+      i += 1
+    }
+    // queue up the aggregates coming in so that they can be processed by the merging threads above
+    aggregates.foreach(a => mergeQueue.synchronized(mergeQueue.enqueue(a)))
+    // once all data is back from the tservers, stop pre-merging and start streaming back to the client
+    keepMerging.set(false)
+    executor.shutdown() // this won't stop the threads, but will cleanup once they're done
+    latch.await() // wait for the merge threads to finish
+    // get an iterator that returns in sorted order
+    val bins = BinSorter.mergeSort((doneMergeQueue ++ mergeQueue).iterator, binSize)
+    while (bins.hasNext) {
+      val (aggregate, offset) = bins.next()
+      os.write(aggregate, offset, binSize)
+    }
   }
 }
 
