@@ -13,13 +13,13 @@ import com.typesafe.scalalogging.LazyLogging
 import org.apache.commons.codec.binary.Base64
 import org.apache.commons.lang3.StringUtils
 import org.geoserver.catalog.{Catalog, ResourceInfo, StoreInfo}
+import org.geotools.api.filter.Filter
+import org.geotools.api.geometry.BoundingBox
 import org.geotools.filter.text.ecql.ECQL
 import org.geotools.geometry.jts.JTS
 import org.locationtech.geomesa.filter.FilterHelper
 import org.locationtech.geomesa.utils.text.WKTUtils
 import org.locationtech.jts.geom.Point
-import org.opengis.filter.Filter
-import org.opengis.geometry.BoundingBox
 
 import java.lang.reflect.Type
 import java.util.Date

@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.geomesa.geoserver</groupId>
         <artifactId>geomesa-geoserver_2.12</artifactId>
-        <version>4.1.0-SNAPSHOT</version>
+        <version>5.0.0-SNAPSHOT</version>
     </parent>
 
     <artifactId>geomesa-gs-monitor-elasticsearch_2.12</artifactId>
@@ -67,6 +67,12 @@
         <dependency>
             <groupId>org.geoserver.extension</groupId>
             <artifactId>gs-monitor-core</artifactId>
+        </dependency>
+
+        <!-- test deps -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
         </dependency>
     </dependencies>
 

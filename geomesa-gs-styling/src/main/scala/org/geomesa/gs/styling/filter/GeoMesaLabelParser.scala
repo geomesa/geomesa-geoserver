@@ -8,12 +8,12 @@
 
 package org.geomesa.gs.styling.filter
 
-import java.lang.{Double => jDouble, Object => jObject}
-import java.util.regex.Pattern
-
 import org.geotools.filter.FunctionExpressionImpl
 import org.geotools.filter.capability.FunctionNameImpl
 import org.geotools.filter.capability.FunctionNameImpl._
+
+import java.lang.{Double => jDouble, Object => jObject}
+import java.util.regex.Pattern
 
 class GeoMesaLabelParser1 extends FunctionExpressionImpl(
   new FunctionNameImpl("geomesaParseLabel_1",

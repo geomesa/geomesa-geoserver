@@ -8,12 +8,11 @@
 
 package org.geomesa.gs.wps.output
 
-import java.io.{InputStream, OutputStream}
-
 import org.geomesa.gs.wfs.output.ArrowOutputFormat
 import org.geoserver.wps.ppio.BinaryPPIO
 import org.geoserver.wps.ppio.ProcessParameterIO.PPIODirection
 
+import java.io.{InputStream, OutputStream}
 import scala.collection.JavaConverters._
 
 /**

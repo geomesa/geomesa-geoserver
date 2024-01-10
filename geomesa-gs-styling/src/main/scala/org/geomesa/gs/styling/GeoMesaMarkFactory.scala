@@ -8,16 +8,16 @@
 
 package org.geomesa.gs.styling
 
-import java.awt.{Graphics2D, Shape}
-import java.lang.{Float => jFloat, String => jString}
-
 import com.github.benmanes.caffeine.cache.{CacheLoader, Caffeine}
 import com.typesafe.scalalogging.LazyLogging
+import org.geotools.api.feature.Feature
+import org.geotools.api.filter.expression.Expression
 import org.geotools.filter.LiteralExpressionImpl
 import org.geotools.geometry.jts.TransformedShape
 import org.geotools.renderer.style._
-import org.opengis.feature.Feature
-import org.opengis.filter.expression.Expression
+
+import java.awt.{Graphics2D, Shape}
+import java.lang.{Float => jFloat, String => jString}
 
 class GeoMesaMarkFactory extends TTFMarkFactory {
   // To use this factory utilize the 'geomesaFastMark' ogc function

@@ -17,7 +17,7 @@ import org.apache.http.impl.nio.client.HttpAsyncClientBuilder
 import org.elasticsearch.client.RestClientBuilder.HttpClientConfigCallback
 import org.elasticsearch.client.{Request, RestClient}
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
-import org.geoserver.catalog.{Catalog, ResourceInfo}
+import org.geoserver.catalog.Catalog
 import org.geoserver.monitor
 import org.geoserver.monitor.RequestData.Status
 import org.geoserver.monitor.RequestDataListener
