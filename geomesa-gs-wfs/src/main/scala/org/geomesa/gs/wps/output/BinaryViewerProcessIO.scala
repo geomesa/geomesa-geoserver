@@ -8,11 +8,11 @@
 
 package org.geomesa.gs.wps.output
 
-import java.io.{InputStream, OutputStream}
-
 import org.geomesa.gs.wfs.output.BinaryViewerOutputFormat
 import org.geoserver.wps.ppio.BinaryPPIO
 import org.geoserver.wps.ppio.ProcessParameterIO.PPIODirection
+
+import java.io.{InputStream, OutputStream}
 
 /**
   * WPS output formatting for binary viewer. Does not support input formatting.

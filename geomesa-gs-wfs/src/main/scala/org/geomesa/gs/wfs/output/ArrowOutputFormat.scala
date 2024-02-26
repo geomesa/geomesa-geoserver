@@ -15,6 +15,8 @@ import org.geoserver.ows.Response
 import org.geoserver.platform.Operation
 import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
+import org.geotools.api.feature.simple.SimpleFeatureType
+import org.geotools.api.filter.sort.SortOrder
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.factory.Hints
 import org.locationtech.geomesa.arrow.ArrowProperties
@@ -24,8 +26,6 @@ import org.locationtech.geomesa.index.conf.QueryHints._
 import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVisitor
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.io.WithClose
-import org.opengis.feature.simple.SimpleFeatureType
-import org.opengis.filter.sort.SortOrder
 
 import java.io.{BufferedOutputStream, OutputStream}
 import scala.collection.JavaConverters._

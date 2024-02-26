@@ -11,7 +11,7 @@ package org.geomesa.gs.monitor.elastic
 import org.apache.commons.codec.binary.Base64
 import org.geomesa.gs.monitor.elastic.ExtendedRequestData.TIMEOUT_KEY
 import org.geomesa.gs.monitor.elastic.ExtendedRequestDataTest._
-import org.geoserver.catalog.{Catalog, LayerInfo, ResourceInfo, StoreInfo, WorkspaceInfo}
+import org.geoserver.catalog._
 import org.geoserver.monitor
 import org.geotools.geometry.jts.ReferencedEnvelope
 import org.geotools.referencing.crs.DefaultGeographicCRS
