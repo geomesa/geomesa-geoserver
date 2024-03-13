@@ -11,6 +11,7 @@ jdk=11
 debug=""
 geomesa_plugin=""
 reset=""
+declare -A versions
 
 function usage() {
   echo ""
@@ -18,14 +19,15 @@ function usage() {
   echo "Configure and run a GeoServer instance with GeoMesa plugins"
   echo ""
   echo "Options:"
-  echo "  --install <plugin>        Install the GeoMesa plugin <plugin> into the GeoServer managed by this script"
-  echo "  --reset                   Wipe out any existing geoserver managed by this script"
-  echo "  --java-version <version>  Set the Java major version used to run GeoServer"
-  echo "  --geomesa-home <path>     Set the path to a local clone of https://github.com/locationtech/geomesa to use for installing plugins"
-  echo "  --debug                   Enable remote debugging on port 5005"
+  echo "  --install <plugin>             Install the GeoMesa plugin <plugin> into the GeoServer managed by this script"
+  echo "  --reset                        Wipe out any existing geoserver managed by this script"
+  echo "  --java-version <version>       Set the Java major version used to run GeoServer"
+  echo "  --set-version <lib>=<version>  Set the install version for a dependency used by GeoMesa"
+  echo "  --geomesa-home <path>          Set the path to a local clone of https://github.com/locationtech/geomesa to use for installing plugins"
+  echo "  --debug                        Enable remote debugging on port 5005"
 }
 
-options="debug,geomesa-home:,java-version:,install:,reset"
+options="debug,geomesa-home:,java-version:,install:,reset,set-version:"
 # arg parsing from https://stackoverflow.com/a/29754866/7809538
 # shellcheck disable=SC2251
 ! parsed_args=$(getopt --options= --longoptions=$options --name "$0" -- "$@")
@@ -58,6 +60,12 @@ while true; do
     --java-version)
         jdk="$2"
         echo "Using Java version $jdk"
+        shift 2
+        ;;
+    --set-version)
+        dep="${2%%=*}"
+        ver="${2#*=}"
+        versions["$dep"]="$ver"
         shift 2
         ;;
     --)
@@ -127,8 +135,8 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
       echo "Extracting $(basename "$plugin")"
       tar -xf "$plugin" -C "$gs_war/WEB-INF/lib/"
     else
-      >&2 echo "ERROR: no plugin found for $geomesa_plugin"
-      >&2 echo "Available plugins:"
+      >&2 echo "ERROR: No plugin found for $geomesa_plugin - try building with Maven"
+      >&2 echo "List of plugins (plugins may not be available without a Maven build):"
       find "$geomesa_dir" -name "geomesa-*-gs-plugin" | grep -v archetypes \
         | xargs -n1 basename | sed 's/geomesa-\(.*\)-gs-plugin/  \1/' >&2
       exit 1
@@ -136,8 +144,8 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
     tools_search_path="$geomesa_dir/geomesa-$geomesa_plugin/geomesa-$geomesa_plugin-dist/target/"
     tools="$(find "$tools_search_path" -name "*-bin.tar.gz" | head -n1)"
     if [[ -z "$tools" ]]; then
-      >&2 echo "ERROR: no CLI tools found for $geomesa_plugin"
-      >&2 echo "Available tools:"
+      >&2 echo "ERROR: No CLI tools found for $geomesa_plugin - try building with Maven"
+      >&2 echo "List of tools (tools may not be available without a Maven build):"
       find "$geomesa_dir" -name "geomesa-*-dist" | grep -v archetypes \
         | xargs -n1 basename | sed 's/geomesa-\(.*\)-dist/  \1/' >&2
       exit 1
@@ -147,6 +155,15 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
         rm -r "$tools_dir"
       fi
       tar -xf "$tools" -C "$install_dir"
+      for dep in "${!versions[@]}"; do
+        if ! grep -q "local ${dep}_version" "$tools_dir/conf/dependencies.sh"; then
+          >&2 echo "ERROR: Dependency $dep not available for override"
+          >&2 echo "Available dependencies:"
+          grep "local .*_version=" "$tools_dir/conf/dependencies.sh" | sed 's/ *local \(.*\)_version=.*/  \1/' >&2
+          exit 1
+        fi
+        sed -i "s/local ${dep}_version=.*/local ${dep}_version=${versions[$dep]}/" "$tools_dir/conf/dependencies.sh"
+      done
       echo "y" | "$tools_dir/bin/install-dependencies.sh" "$gs_war/WEB-INF/lib/" 2>&1 \
         | grep fetching | sed 's/fetching/Installing/'
     fi
@@ -185,7 +202,7 @@ docker run --rm \
   "$image" \
   -c "$entrypoint"
 
-## reset permissions on the datadir so that it doesn"t end up owned by tomcat
+# reset permissions on the datadir so that it doesn"t end up owned by tomcat
 docker run --rm \
   -v "$data_dir:/tmp/data" \
   --entrypoint bash \
