@@ -181,7 +181,7 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
 
   if [[ -n "$reset" ]]; then
     echo "Wiping geoserver-data directory"
-    rm -r "$data_dir"
+    rm -rf "$data_dir"
   fi
 fi
 
