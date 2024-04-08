@@ -193,7 +193,7 @@ entrypoint="$entrypoint && exec catalina.sh run"
 
 echo "Starting geoserver"
 # add-opens required by arrow for jdk 11+
-docker run --rm \
+! docker run --rm \
   --network host \
   -v "$gs_war:/usr/local/tomcat/webapps/geoserver" \
   -v "$data_dir:/tmp/data" \
