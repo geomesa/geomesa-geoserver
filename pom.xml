@@ -59,7 +59,7 @@
     </modules>
 
     <properties>
-        <geomesa.version>5.0.0-m.1</geomesa.version>
+        <geomesa.version>5.0.0-SNAPSHOT</geomesa.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
