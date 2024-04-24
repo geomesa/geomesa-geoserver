@@ -41,7 +41,7 @@ eval set -- "$parsed_args"
 while true; do
   case "$1" in
     --debug)
-        debug="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=127.0.0.1:5005"
+        debug="-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5005"
         shift
         ;;
     --reset)
@@ -169,7 +169,7 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
     fi
 
     # geomesa wfs plugin - requires a data store plugin to work
-    wfs="$(find "$dir/../geomesa-gs-wfs/target" -name "geomesa-gs-wfs*.jar" | sort -r | head -n1)"
+    wfs="$(find "$dir/../geomesa-gs-wfs/target" -name "geomesa-gs-wfs*.jar" -not -name "*-sources.jar" -not -name "*-tests.jar" | sort -r | head -n1)"
     if [[ -n "$wfs" ]]; then
       echo "Copying $(basename "$wfs")"
       cp "$wfs" "$gs_war/WEB-INF/lib/"
@@ -194,7 +194,7 @@ entrypoint="$entrypoint && exec catalina.sh run"
 echo "Starting geoserver"
 # add-opens required by arrow for jdk 11+
 ! docker run --rm \
-  --network host \
+  -p 8080:8080 -p 5005:5005 \
   -v "$gs_war:/usr/local/tomcat/webapps/geoserver" \
   -v "$data_dir:/tmp/data" \
   -e "CATALINA_OPTS=-DGEOSERVER_DATA_DIR=/tmp/data --add-opens=java.base/java.nio=ALL-UNNAMED $debug" \
@@ -202,9 +202,11 @@ echo "Starting geoserver"
   "$image" \
   -c "$entrypoint"
 
-# reset permissions on the datadir so that it doesn"t end up owned by tomcat
-docker run --rm \
-  -v "$data_dir:/tmp/data" \
-  --entrypoint bash \
-  "$image" \
-  -c "chown -R $(id -u):$(id -g) /tmp/data/"
+if [[ -z "$(docker info -f "{{println .SecurityOptions}}" | grep rootless)" ]]; then
+  # reset permissions on the datadir so that it doesn"t end up owned by tomcat
+  docker run --rm \
+    -v "$data_dir:/tmp/data" \
+    --entrypoint bash \
+    "$image" \
+    -c "chown -R $(id -u):$(id -g) /tmp/data/"
+fi
