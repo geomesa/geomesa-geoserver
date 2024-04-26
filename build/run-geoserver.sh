@@ -191,9 +191,18 @@ entrypoint="$entrypoint && echo 'tomcat.util.scan.StandardJarScanFilter.jarsToSk
 # the default container entrypoint is 'catalina.sh run'
 entrypoint="$entrypoint && exec catalina.sh run"
 
+if ! docker network ls | grep -q geomesa; then
+  echo "Creating docker network"
+  docker network create geomesa
+fi
+
 echo "Starting geoserver"
 # add-opens required by arrow for jdk 11+
+# use ! to prevent exit on error as we want to always run the permissions cleanup step
+# shellcheck disable=SC2251
 ! docker run --rm \
+  --name geoserver \
+  --network geomesa \
   -p 8080:8080 -p 5005:5005 \
   -v "$gs_war:/usr/local/tomcat/webapps/geoserver" \
   -v "$data_dir:/tmp/data" \
@@ -202,7 +211,7 @@ echo "Starting geoserver"
   "$image" \
   -c "$entrypoint"
 
-if [[ -z "$(docker info -f "{{println .SecurityOptions}}" | grep rootless)" ]]; then
+if ! docker info -f "{{println .SecurityOptions}}" | grep -q rootless; then
   # reset permissions on the datadir so that it doesn"t end up owned by tomcat
   docker run --rm \
     -v "$data_dir:/tmp/data" \
