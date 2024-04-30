@@ -63,7 +63,7 @@
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <scala.version>2.12.18</scala.version>
+        <scala.version>2.12.19</scala.version>
         <scala.binary.version>2.12</scala.binary.version>
         <jdk.version>11</jdk.version>
 
