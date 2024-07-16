@@ -50,11 +50,11 @@ git checkout "$TAG"
 
 mvn clean deploy -Pcentral,python -DskipTests | tee build_2.12.log
 
-./build/change-scala-version.sh 2.13
+./build/scripts/change-scala-version.sh 2.13
 mvn clean deploy -Pcentral,python -DskipTests | tee build_2.13.log
 
 # reset pom changes
-./build/change-scala-version.sh 2.12
+./build/scripts/change-scala-version.sh 2.12
 
 # go back to original branch
 git checkout "$BRANCH"
