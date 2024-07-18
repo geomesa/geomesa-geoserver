@@ -139,7 +139,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
       hints.put(ARROW_PROCESS_DELTAS, java.lang.Boolean.valueOf(option.toString))
     }
     Option(options.get(Fields.FlattenStruct)).foreach { option =>
-      hints.put(ARROW_FLATTEN, java.lang.Boolean.valueOf(option.toString))
+      hints.put(ARROW_FLATTEN_STRUCT, java.lang.Boolean.valueOf(option.toString))
     }
   }
 }
