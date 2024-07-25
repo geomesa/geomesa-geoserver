@@ -37,7 +37,7 @@ import scala.collection.JavaConverters._
   * Optional flags:
   *   format_options=includeFids:<Boolean>;proxyFids:<Boolean>;dictionaryFields:<field_to_encode>,<field_to_encode>;
   *     useCachedDictionaries:<Boolean>;sortField:<sort_field>;sortReverse:<Boolean>;
-  *     batchSize:<Integer>;doublePass:<Boolean>;formatVersion:<String>
+  *     batchSize:<Integer>;doublePass:<Boolean>;formatVersion:<String>;flattenStruct:<Boolean>;
   *
   * @param geoServer geoserver
   */
@@ -86,6 +86,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
             val sortField = hints.getArrowSort.map(_._1)
             val sortReverse = hints.getArrowSort.map(_._2)
             val batchSize = hints.getArrowBatchSize.getOrElse(ArrowProperties.BatchSize.get.toInt)
+            val flattenStruct = hints.isArrowFlatten
 
             val preSorted = for (field <- sortField; reverse <- sortReverse.orElse(Some(false))) yield {
               request.getQueries.get(i).getSortBy match {
@@ -99,7 +100,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
             val visitor =
               new ArrowVisitor(fc.getSchema.asInstanceOf[SimpleFeatureType], encoding, version,
-                dictionaries, sortField, sortReverse, preSorted.getOrElse(false), batchSize)
+                dictionaries, sortField, sortReverse, preSorted.getOrElse(false), batchSize, flattenStruct)
 
             iter.foreach(visitor.visit)
 
@@ -137,6 +138,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
     Option(options.get(Fields.ProcessDeltas)).foreach { option =>
       hints.put(ARROW_PROCESS_DELTAS, java.lang.Boolean.valueOf(option.toString))
     }
+    Option(options.get(Fields.FlattenStruct)).foreach { option =>
+      hints.put(ARROW_FLATTEN_STRUCT, java.lang.Boolean.valueOf(option.toString))
+    }
   }
 }
 
@@ -155,5 +159,6 @@ object ArrowOutputFormat extends LazyLogging {
     val SortReverse           = "SORTREVERSE"
     val BatchSize             = "BATCHSIZE"
     val ProcessDeltas         = "PROCESSDELTAS"
+    val FlattenStruct         = "FLATTENSTRUCT"
   }
 }
