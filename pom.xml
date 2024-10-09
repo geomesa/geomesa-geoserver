@@ -68,10 +68,11 @@
         <jdk.version>11</jdk.version>
 
         <!-- bundled with geoserver -->
-        <gt.version>30.4</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
-        <geoserver.version>2.24.4</geoserver.version>
-        <jts.version>1.19.0</jts.version> <!-- needs to track with gt/gs version -->
+        <gt.version>32.0</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
+        <geoserver.version>2.26.0</geoserver.version>
+        <jts.version>1.20.0</jts.version> <!-- needs to track with gt/gs version -->
         <spatial4j.version>0.8</spatial4j.version> <!-- needs to track with jts version -->
+
         <guava.version>32.0.0-jre</guava.version>
         <spring.version>5.3.27</spring.version>
         <spring.security.version>5.7.10</spring.security.version>
