@@ -166,6 +166,10 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
       done
       echo "y" | "$tools_dir/bin/install-dependencies.sh" "$gs_war/WEB-INF/lib/" 2>&1 \
         | grep fetching | sed 's/fetching/Installing/'
+      if [[ -f "$tools_dir/bin/install-confluent-support.sh" ]]; then
+        echo "y" | "$tools_dir/bin/install-confluent-support.sh" "$gs_war/WEB-INF/lib/" 2>&1 \
+          | grep fetching | sed 's/fetching/Installing/'
+      fi
     fi
 
     # geomesa wfs plugin - requires a data store plugin to work
