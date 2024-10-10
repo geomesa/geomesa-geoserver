@@ -165,10 +165,10 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
         sed -i "s/local ${dep}_version=.*/local ${dep}_version=${versions[$dep]}/" "$tools_dir/conf/dependencies.sh"
       done
       echo "y" | "$tools_dir/bin/install-dependencies.sh" "$gs_war/WEB-INF/lib/" 2>&1 \
-        | grep fetching | sed 's/fetching/Installing/'
+        | { grep fetching || true; } | sed 's/fetching/Installing/'
       if [[ -f "$tools_dir/bin/install-confluent-support.sh" ]]; then
         echo "y" | "$tools_dir/bin/install-confluent-support.sh" "$gs_war/WEB-INF/lib/" 2>&1 \
-          | grep fetching | sed 's/fetching/Installing/'
+          | { grep fetching || true; } | sed 's/fetching/Installing/'
       fi
     fi
 
