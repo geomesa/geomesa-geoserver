@@ -19,12 +19,13 @@ import org.geotools.api.feature.simple.SimpleFeatureType
 import org.geotools.api.filter.sort.SortOrder
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.factory.Hints
-import org.locationtech.geomesa.arrow.ArrowProperties
+import org.locationtech.geomesa.arrow.{ArrowEncodedSft, ArrowProperties}
 import org.locationtech.geomesa.arrow.io.FormatVersion
 import org.locationtech.geomesa.arrow.vector.SimpleFeatureVector.SimpleFeatureEncoding
 import org.locationtech.geomesa.index.conf.QueryHints._
 import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVisitor
 import org.locationtech.geomesa.utils.collection.CloseableIterator
+import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose
 
 import java.io.{BufferedOutputStream, OutputStream}
@@ -68,8 +69,12 @@ class ArrowOutputFormat(geoServer: GeoServer)
       var i = -1
       featureCollections.getFeatures.asScala.foreach { fc =>
         i += 1
-        WithClose(CloseableIterator(fc.asInstanceOf[SimpleFeatureCollection].features())) { iter =>
-          val aggregated = fc.getSchema == org.locationtech.geomesa.arrow.ArrowEncodedSft
+        val sfc = fc.asInstanceOf[SimpleFeatureCollection]
+        WithClose(CloseableIterator(sfc.features())) { iter =>
+          val aggregated = SimpleFeatureTypes.compare(sfc.getSchema, ArrowEncodedSft) match {
+            case 0 | 1 => true
+            case _ => false
+          }
           if (aggregated) {
             // with distributed processing, encodings have already been computed in the servers
             iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
