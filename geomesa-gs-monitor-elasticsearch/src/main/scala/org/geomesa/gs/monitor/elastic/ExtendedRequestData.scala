@@ -112,7 +112,7 @@ object ExtendedRequestData extends LazyLogging {
           new JsonPrimitive(bbox.toString)
         }
       })
-      .registerTypeAdapter(classOf[Throwable], new JsonSerializer[Throwable] {
+      .registerTypeHierarchyAdapter(classOf[Throwable], new JsonSerializer[Throwable] {
         override def serialize(ex: Throwable, `type`: Type, context: JsonSerializationContext): JsonElement = {
           new JsonPrimitive(ex.getMessage)
         }
