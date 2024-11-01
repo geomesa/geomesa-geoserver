@@ -17,13 +17,13 @@ import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.api.filter.sort.SortOrder
 import org.geotools.data.simple.SimpleFeatureCollection
-import org.geotools.referencing.CRS.AxisOrder
 import org.geotools.util.factory.Hints
 import org.locationtech.geomesa.arrow.{ArrowEncodedSft, ArrowProperties}
 import org.locationtech.geomesa.arrow.io.FormatVersion
 import org.locationtech.geomesa.arrow.vector.SimpleFeatureVector.SimpleFeatureEncoding
 import org.locationtech.geomesa.index.conf.QueryHints._
 import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVisitor
+import org.locationtech.geomesa.utils.bin.AxisOrder
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose
@@ -39,7 +39,7 @@ import scala.collection.JavaConverters._
   *   format_options=includeFids:<Boolean>;proxyFids:<Boolean>;dictionaryFields:<field_to_encode>,<field_to_encode>;
   *     useCachedDictionaries:<Boolean>;sortField:<sort_field>;sortReverse:<Boolean>;
   *     batchSize:<Integer>;doublePass:<Boolean>;formatVersion:<String>;
-  *     flattenStruct:<Boolean>;axisOrder:<NORTH_EAST||EAST_NORTH>;
+  *     flattenStruct:<Boolean>;axisOrder:<LatLon||LonLat>;
   *
   * @param geoServer geoserver
   */
@@ -87,7 +87,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
             val hints = new Hints()
             populateFormatOptions(request, hints)
 
-            val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid, hints.getAxisOrder)
+            val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid, hints.isFlipAxisOrder)
             val dictionaries = hints.getArrowDictionaryFields
             val version = hints.getArrowFormatVersion.getOrElse(FormatVersion.ArrowFormatVersion.get)
             val sortField = hints.getArrowSort.map(_._1)
@@ -148,7 +148,10 @@ class ArrowOutputFormat(geoServer: GeoServer)
       hints.put(ARROW_FLATTEN_STRUCT, java.lang.Boolean.valueOf(option.toString))
     }
     Option(options.get(Fields.AxisOrder)).foreach { option =>
-      hints.put(AXIS_ORDER, AxisOrder.valueOf(option.toString))
+      hints.put(FLIP_AXIS_ORDER, AxisOrder.withName(option.toString) match {
+        case AxisOrder.LonLat => true
+        case _ => false
+      })
     }
   }
 }
