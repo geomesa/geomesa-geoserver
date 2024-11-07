@@ -23,7 +23,6 @@ import org.locationtech.geomesa.arrow.io.FormatVersion
 import org.locationtech.geomesa.arrow.vector.SimpleFeatureVector.SimpleFeatureEncoding
 import org.locationtech.geomesa.index.conf.QueryHints._
 import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVisitor
-import org.locationtech.geomesa.utils.bin.AxisOrder
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose
@@ -39,7 +38,7 @@ import scala.collection.JavaConverters._
   *   format_options=includeFids:<Boolean>;proxyFids:<Boolean>;dictionaryFields:<field_to_encode>,<field_to_encode>;
   *     useCachedDictionaries:<Boolean>;sortField:<sort_field>;sortReverse:<Boolean>;
   *     batchSize:<Integer>;doublePass:<Boolean>;formatVersion:<String>;
-  *     flattenStruct:<Boolean>;axisOrder:<LatLon||LonLat>;
+  *     flattenStruct:<Boolean>;flipAxisOrder:<Boolean>;
   *
   * @param geoServer geoserver
   */
@@ -147,11 +146,8 @@ class ArrowOutputFormat(geoServer: GeoServer)
     Option(options.get(Fields.FlattenStruct)).foreach { option =>
       hints.put(ARROW_FLATTEN_STRUCT, java.lang.Boolean.valueOf(option.toString))
     }
-    Option(options.get(Fields.AxisOrder)).foreach { option =>
-      hints.put(FLIP_AXIS_ORDER, AxisOrder.withName(option.toString) match {
-        case AxisOrder.LonLat => true
-        case _ => false
-      })
+    Option(options.get(Fields.FlipAxisOrder)).foreach { option =>
+      hints.put(FLIP_AXIS_ORDER, java.lang.Boolean.valueOf(option.toString))
     }
   }
 }
@@ -172,6 +168,6 @@ object ArrowOutputFormat extends LazyLogging {
     val BatchSize             = "BATCHSIZE"
     val ProcessDeltas         = "PROCESSDELTAS"
     val FlattenStruct         = "FLATTENSTRUCT"
-    val AxisOrder             = "AXISORDER"
+    val FlipAxisOrder         = "FLIPAXISORDER"
   }
 }
