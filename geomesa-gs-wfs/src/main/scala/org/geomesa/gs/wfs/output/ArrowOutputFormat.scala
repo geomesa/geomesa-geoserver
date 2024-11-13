@@ -15,7 +15,6 @@ import org.geoserver.ows.Response
 import org.geoserver.platform.Operation
 import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
-import org.geotools.api.feature.simple.SimpleFeatureType
 import org.geotools.api.filter.sort.SortOrder
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.factory.Hints
@@ -38,7 +37,8 @@ import scala.collection.JavaConverters._
   * Optional flags:
   *   format_options=includeFids:<Boolean>;proxyFids:<Boolean>;dictionaryFields:<field_to_encode>,<field_to_encode>;
   *     useCachedDictionaries:<Boolean>;sortField:<sort_field>;sortReverse:<Boolean>;
-  *     batchSize:<Integer>;doublePass:<Boolean>;formatVersion:<String>;flattenStruct:<Boolean>;
+  *     batchSize:<Integer>;doublePass:<Boolean>;formatVersion:<String>;
+  *     flattenStruct:<Boolean>;flipAxisOrder:<Boolean>;
   *
   * @param geoServer geoserver
   */
@@ -71,7 +71,8 @@ class ArrowOutputFormat(geoServer: GeoServer)
         i += 1
         val sfc = fc.asInstanceOf[SimpleFeatureCollection]
         WithClose(CloseableIterator(sfc.features())) { iter =>
-          val aggregated = SimpleFeatureTypes.compare(sfc.getSchema, ArrowEncodedSft) match {
+          val featureType = sfc.getSchema
+          val aggregated = SimpleFeatureTypes.compare(featureType, ArrowEncodedSft) match {
             case 0 | 1 => true
             case _ => false
           }
@@ -85,7 +86,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
             val hints = new Hints()
             populateFormatOptions(request, hints)
 
-            val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid)
+            val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid, hints.isFlipAxisOrder)
             val dictionaries = hints.getArrowDictionaryFields
             val version = hints.getArrowFormatVersion.getOrElse(FormatVersion.ArrowFormatVersion.get)
             val sortField = hints.getArrowSort.map(_._1)
@@ -103,8 +104,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
               }
             }
 
-            val visitor =
-              new ArrowVisitor(fc.getSchema.asInstanceOf[SimpleFeatureType], encoding, version,
+            val visitor = new ArrowVisitor(featureType, encoding, version,
                 dictionaries, sortField, sortReverse, preSorted.getOrElse(false), batchSize, flattenStruct)
 
             iter.foreach(visitor.visit)
@@ -146,6 +146,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
     Option(options.get(Fields.FlattenStruct)).foreach { option =>
       hints.put(ARROW_FLATTEN_STRUCT, java.lang.Boolean.valueOf(option.toString))
     }
+    Option(options.get(Fields.FlipAxisOrder)).foreach { option =>
+      hints.put(FLIP_AXIS_ORDER, java.lang.Boolean.valueOf(option.toString))
+    }
   }
 }
 
@@ -165,5 +168,6 @@ object ArrowOutputFormat extends LazyLogging {
     val BatchSize             = "BATCHSIZE"
     val ProcessDeltas         = "PROCESSDELTAS"
     val FlattenStruct         = "FLATTENSTRUCT"
+    val FlipAxisOrder         = "FLIPAXISORDER"
   }
 }
