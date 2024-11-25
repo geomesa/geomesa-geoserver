@@ -53,6 +53,7 @@
     <packaging>pom</packaging>
 
     <modules>
+        <module>geomesa-gs-kafka-status-endpoint</module>
         <module>geomesa-gs-monitor-elasticsearch</module>
         <module>geomesa-gs-styling</module>
         <module>geomesa-gs-wfs</module>
@@ -215,6 +216,18 @@
             <dependency>
                 <groupId>org.geoserver</groupId>
                 <artifactId>gs-platform</artifactId>
+                <version>${geoserver.version}</version>
+                <scope>provided</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>*</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>org.geoserver</groupId>
+                <artifactId>gs-rest</artifactId>
                 <version>${geoserver.version}</version>
                 <scope>provided</scope>
                 <exclusions>
@@ -402,21 +415,6 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-assembly-plugin</artifactId>
                     <version>${maven.assembly.plugin.version}</version>
-                    <executions>
-                        <execution>
-                            <id>create-archive</id>
-                            <phase>package</phase>
-                            <goals>
-                                <goal>single</goal>
-                            </goals>
-                            <configuration>
-                                <descriptors>
-                                    <descriptor>${project.basedir}/../build/assembly.xml</descriptor>
-                                </descriptors>
-                                <tarLongFileMode>posix</tarLongFileMode>
-                            </configuration>
-                        </execution>
-                    </executions>
                 </plugin>
                 <plugin>
                     <groupId>com.mycila</groupId>
