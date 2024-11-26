@@ -69,14 +69,14 @@
         <jdk.version>11</jdk.version>
 
         <!-- bundled with geoserver -->
-        <gt.version>32.0</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
-        <geoserver.version>2.26.0</geoserver.version>
+        <gt.version>32.1</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
+        <geoserver.version>2.26.1</geoserver.version>
         <jts.version>1.20.0</jts.version> <!-- needs to track with gt/gs version -->
         <spatial4j.version>0.8</spatial4j.version> <!-- needs to track with jts version -->
 
-        <guava.version>32.0.0-jre</guava.version>
-        <spring.version>5.3.27</spring.version>
-        <spring.security.version>5.7.10</spring.security.version>
+        <guava.version>33.2.1-jre</guava.version>
+        <spring.version>5.3.39</spring.version>
+        <spring.security.version>5.8.15</spring.security.version>
 
         <!-- bundled with the main geomesa plugins -->
         <typesafe.config.version>1.4.3</typesafe.config.version>
