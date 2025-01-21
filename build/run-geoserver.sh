@@ -162,8 +162,10 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
           grep "local .*_version=" "$tools_dir/conf/dependencies.sh" | sed 's/ *local \(.*\)_version=.*/  \1/' >&2
           exit 1
         fi
+        echo "Setting ${dep} version to ${versions[$dep]}"
         sed -i "s/local ${dep}_version=.*/local ${dep}_version=${versions[$dep]}/" "$tools_dir/conf/dependencies.sh"
       done
+      echo "Installing dependencies..."
       echo "y" | "$tools_dir/bin/install-dependencies.sh" "$gs_war/WEB-INF/lib/" 2>&1 \
         | { grep fetching || true; } | sed 's/fetching/Installing/'
       if [[ -f "$tools_dir/bin/install-confluent-support.sh" ]]; then
@@ -186,6 +188,51 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
   if [[ -n "$reset" ]]; then
     echo "Wiping geoserver-data directory"
     rm -rf "$data_dir"
+  fi
+fi
+
+if [[ ! -d "$data_dir" || -n "$(find "$data_dir" -maxdepth 0 -empty)" ]]; then
+  echo "Creating default workspace"
+  mkdir -p "$data_dir/workspaces/geomesa"
+  {
+    echo "<workspace>"
+    echo "  <id>WorkspaceInfoImpl-e024ef8:19460bfe199:-7fe3</id>"
+    echo "  <name>geomesa</name>"
+    echo "  <isolated>false</isolated>"
+    echo "  <dateCreated>2025-01-13 17:40:18.694 UTC</dateCreated>"
+    echo "</workspace>"
+  } >> "$data_dir/workspaces/default.xml"
+  {
+    echo "<namespace>"
+    echo "  <id>NamespaceInfoImpl-e024ef8:19460bfe199:-7fe2</id>"
+    echo "  <prefix>geomesa</prefix>"
+    echo "  <uri>geomesa</uri>"
+    echo "  <isolated>false</isolated>"
+    echo "</namespace>"
+  } >> "$data_dir/workspaces/geomesa/namespace.xml"
+  {
+    echo "<workspace>"
+    echo "  <id>WorkspaceInfoImpl-e024ef8:19460bfe199:-7fe3</id>"
+    echo "  <name>geomesa</name>"
+    echo "  <isolated>false</isolated>"
+    echo "  <dateCreated>2025-01-13 17:40:18.694 UTC</dateCreated>"
+    echo "</workspace>"
+  } >> "$data_dir/workspaces/geomesa/workspace.xml"
+  mkdir -p "$data_dir/styles/"
+  heatmapSld="$geomesa_dir/docs/tutorials/_static/geomesa-examples-gdelt/heatmap.sld"
+  if [[ -f "$heatmapSld" ]]; then
+    echo "Copying heatmap.sld"
+    cp "$heatmapSld" "$data_dir/styles/"
+    {
+     echo "<style>"
+     echo "  <id>StyleInfoImpl--570ae188:124761b8d78:-7dd3</id>"
+     echo "  <name>heatmap</name>"
+     echo "  <filename>heatmap.sld</filename>"
+     echo "</style>"
+    } >> "$data_dir/styles/heatmap.xml"
+  else
+    >&2 echo "ERROR: could not find heatmap style at expected path '$heatmapSld'"
+    exit 1
   fi
 fi
 
@@ -216,7 +263,7 @@ echo "Starting geoserver"
   -c "$entrypoint"
 
 if ! docker info -f "{{println .SecurityOptions}}" | grep -q rootless; then
-  # reset permissions on the datadir so that it doesn"t end up owned by tomcat
+  # reset permissions on the datadir so that it doesn't end up owned by tomcat
   docker run --rm \
     -v "$data_dir:/tmp/data" \
     --entrypoint bash \
