@@ -12,12 +12,15 @@ import com.typesafe.scalalogging.StrictLogging
 import org.geoserver.catalog.event._
 import org.geoserver.catalog.{Catalog, DataStoreInfo, FeatureTypeInfo}
 import org.geoserver.rest.RestBaseController
-import org.locationtech.geomesa.kafka.data.KafkaCacheLoader
+import org.locationtech.geomesa.kafka.data.{KafkaCacheLoader, KafkaDataStoreParams}
 import org.locationtech.geomesa.utils.concurrent.CachedThreadPool
 import org.springframework.beans.factory.InitializingBean
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.{HttpStatus, MediaType, ResponseEntity}
 import org.springframework.web.bind.annotation.{GetMapping, RequestMapping, RestController}
+
+import java.util.Objects
+import scala.util.Try
 
 @RestController
 @RequestMapping(path = Array("/rest/kafka"), produces = Array(MediaType.APPLICATION_JSON_VALUE))
@@ -47,7 +50,8 @@ class KafkaLoadStatusController extends RestBaseController with CatalogListener 
   }
 
   override def handleAddEvent(event: CatalogAddEvent): Unit = loadStore(event)
-  override def handleModifyEvent(event: CatalogModifyEvent): Unit = loadStore(event)
+  // note: called before the store is actually updated, wait for post-modify instead
+  override def handleModifyEvent(event: CatalogModifyEvent): Unit = {}
   override def handlePostModifyEvent(event: CatalogPostModifyEvent): Unit = loadStore(event)
   override def handleRemoveEvent(event: CatalogRemoveEvent): Unit = {}
 
@@ -57,12 +61,7 @@ class KafkaLoadStatusController extends RestBaseController with CatalogListener 
     CachedThreadPool.submit(() => {
       try {
         val futures = catalog.getDataStores.asScala.toList.map { dsi =>
-          CachedThreadPool.submit(() => {
-            val start = System.currentTimeMillis()
-            try { loadStore(dsi) } finally {
-              logger.info(s"Loaded store ${name(dsi)} in ${System.currentTimeMillis() - start}ms")
-            }
-          })
+          CachedThreadPool.submit(() => loadStore(dsi))
         }
         futures.foreach(_.get)
         logger.info(s"Finished loading datastores in ${System.currentTimeMillis() - start}ms")
@@ -82,13 +81,23 @@ class KafkaLoadStatusController extends RestBaseController with CatalogListener 
   }
 
   private def loadStore(dsi: DataStoreInfo): Unit = {
-    // note: this gets a cached instance
-    try { dsi.getDataStore(null) } catch {
+    try {
+      val params = dsi.getConnectionParameters
+      if (params != null && KafkaDataStoreParams.Brokers.exists(params) && KafkaDataStoreParams.ConsumerReadBack.exists(params)) {
+        val start = System.currentTimeMillis()
+        val ds = dsi.getDataStore(null) // note: this gets a cached instance
+        if (ds != null) {
+          ds.getNames.asScala.foreach(ds.getFeatureSource)
+        }
+        logger.debug(s"Loaded store ${name(dsi)} in ${System.currentTimeMillis() - start}ms")
+      }
+    } catch {
       case e: Throwable => logger.error(s"Error loading store ${name(dsi)}:", e)
     }
   }
 
-  private def name(dsi: DataStoreInfo): String = s"${dsi.getWorkspace.getName}:${dsi.getName}"
+  private def name(dsi: DataStoreInfo): String =
+    Try(s"${dsi.getWorkspace.getName}:${dsi.getName}").getOrElse(Objects.toString(dsi))
 
   def setCatalog(catalog: Catalog): Unit = this.catalog = catalog
   def getCatalog: Catalog = this.catalog
