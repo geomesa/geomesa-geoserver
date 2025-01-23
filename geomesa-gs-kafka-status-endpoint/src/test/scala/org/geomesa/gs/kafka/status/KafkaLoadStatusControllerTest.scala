@@ -34,7 +34,10 @@ class KafkaLoadStatusControllerTest extends Specification with Mockito {
     "return error if stores are not loaded" in {
       val kafkaInfo = mock[DataStoreInfo]
       kafkaInfo.getConnectionParameters returns Collections.singletonMap(KafkaDataStoreParams.Brokers.key, "localhost")
-      kafkaInfo.getDataStore(null) answers (_ => { KafkaCacheLoader.LoaderStatus.startLoad(); null })
+      def getStore[T](ignored: Any): T = {
+        KafkaCacheLoader.LoaderStatus.startLoad(); null.asInstanceOf[T]
+      }
+      kafkaInfo.getDataStore(null) answers getStore _
       val otherInfo = mock[DataStoreInfo]
       otherInfo.getConnectionParameters returns Collections.singletonMap("otherKey", "localhost")
       val controller = new KafkaLoadStatusController()
