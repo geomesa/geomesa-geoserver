@@ -59,7 +59,7 @@ sed_i() {
 
 export -f sed_i
 
-find "$BASEDIR" -name 'pom.xml' -not -path '*target*' -print \
+find "$BASEDIR" -name 'pom.xml' -not -path '*target*' -not -path '*build/docker*' -print \
   -exec bash -c "sed_i 's/\(artifactId.*\)_'$FROM_VERSION'/\1_'$TO_VERSION'/g' {}" \;
 
 # update <scala.binary.version> in parent POM
