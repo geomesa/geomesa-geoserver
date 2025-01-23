@@ -183,6 +183,18 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
       >&2 echo "ERROR: no WFS plugin found - try building with Maven"
       exit 1
     fi
+
+    # geomesa kafka readiness plugin - requires the kafka store plugin to work
+    if [[ "$geomesa_plugin" == "kafka" ]]; then
+      readiness="$(find "$dir/../geomesa-gs-kafka-status-endpoint/target" -name "geomesa-gs-kafka-status-endpoint*.jar" -not -name "*-sources.jar" -not -name "*-tests.jar" | sort -r | head -n1)"
+      if [[ -n "$readiness" ]]; then
+        echo "Copying $(basename "$readiness")"
+        cp "$readiness" "$gs_war/WEB-INF/lib/"
+      else
+        >&2 echo "ERROR: no Kafka readiness plugin found - try building with Maven"
+        exit 1
+      fi
+    fi
   fi
 
   if [[ -n "$reset" ]]; then
