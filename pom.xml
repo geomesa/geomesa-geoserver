@@ -4,7 +4,7 @@
 
     <groupId>org.geomesa.geoserver</groupId>
     <artifactId>geomesa-geoserver_2.12</artifactId>
-    <version>5.2.0</version>
+    <version>5.2.1-SNAPSHOT</version>
     <name>GeoMesa GeoServer Integration</name>
     <description>Software to help integrate GeoMesa and GeoServer</description>
     <url>https://github.com/geomesa/geomesa-geoserver</url>
