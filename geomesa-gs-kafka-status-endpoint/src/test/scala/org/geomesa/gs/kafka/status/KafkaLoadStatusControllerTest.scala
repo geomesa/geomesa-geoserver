@@ -33,9 +33,10 @@ class KafkaLoadStatusControllerTest extends Specification with Mockito {
     }
     "return error if stores are not loaded" in {
       val kafkaInfo = mock[DataStoreInfo]
-      kafkaInfo.getConnectionParameters returns Collections.singletonMap(KafkaDataStoreParams.Brokers.key, "localhost")
+      kafkaInfo.getConnectionParameters returns
+        java.util.Map.of(KafkaDataStoreParams.Brokers.key, "localhost", KafkaDataStoreParams.ConsumerReadBack.key, "Inf")
       def getStore[T](ignored: Any): T = {
-        KafkaCacheLoader.LoaderStatus.startLoad(); null.asInstanceOf[T]
+        KafkaCacheLoader.LoaderStatus.startLoad(kafkaInfo); null.asInstanceOf[T]
       }
       kafkaInfo.getDataStore(null) answers getStore _
       val otherInfo = mock[DataStoreInfo]
@@ -50,14 +51,14 @@ class KafkaLoadStatusControllerTest extends Specification with Mockito {
       eventually(there was one(kafkaInfo).getDataStore(null))
       eventually(there was one(otherInfo).getConnectionParameters)
       controller.status().getStatusCode mustEqual HttpStatus.SERVICE_UNAVAILABLE
-      KafkaCacheLoader.LoaderStatus.completedLoad()
+      KafkaCacheLoader.LoaderStatus.completedLoad(kafkaInfo)
       eventually(controller.status().getStatusCode mustEqual HttpStatus.OK)
       there was no(otherInfo).getDataStore(null)
       val event = mock[CatalogPostModifyEvent]
       event.getSource returns kafkaInfo
       controller.handlePostModifyEvent(event)
       controller.status().getStatusCode mustEqual HttpStatus.SERVICE_UNAVAILABLE
-      KafkaCacheLoader.LoaderStatus.completedLoad()
+      KafkaCacheLoader.LoaderStatus.completedLoad(kafkaInfo)
       eventually(controller.status().getStatusCode mustEqual HttpStatus.OK)
     }
   }
