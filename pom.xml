@@ -89,6 +89,8 @@
         <!-- distribution properties -->
         <dist.geoserver.lib>geoserver/WEB-INF/lib</dist.geoserver.lib>
 
+        <copyright.year>2025</copyright.year>
+
         <!-- maven build properties -->
         <maven.compiler.plugin.version>3.12.1</maven.compiler.plugin.version>
         <maven.jar.plugin.version>3.3.0</maven.jar.plugin.version>
@@ -424,7 +426,7 @@
                         <header>build/copyright/gai3.txt</header>
                         <validHeaders />
                         <properties>
-                            <year>2024</year>
+                            <year>${copyright.year}</year>
                             <owner>General Atomics Integrated Intelligence, Inc.</owner>
                         </properties>
                         <headerDefinitions>
