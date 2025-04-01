@@ -421,11 +421,11 @@
                     <artifactId>license-maven-plugin</artifactId>
                     <version>${license.maven.plugin.version}</version>
                     <configuration>
-                        <header>build/copyright/ccri.txt</header>
+                        <header>build/copyright/gai3.txt</header>
                         <validHeaders />
                         <properties>
                             <year>2024</year>
-                            <owner>Commonwealth Computer Research, Inc.</owner>
+                            <owner>General Atomics Integrated Intelligence, Inc.</owner>
                         </properties>
                         <headerDefinitions>
                             <definitions>build/copyright/geomesa-header.xml</definitions>
