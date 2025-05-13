@@ -29,7 +29,7 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose
 
 import java.io.{BufferedOutputStream, ByteArrayInputStream, OutputStream}
-import scala.jdk.CollectionConverters._
+import scala.collection.JavaConverters._
 
 /**
   * Output format for wfs requests that encodes features into arrow vector format.
@@ -64,25 +64,14 @@ class ArrowOutputFormat(geoServer: GeoServer)
       output: OutputStream,
       getFeature: Operation): Unit = {
 
-    import org.locationtech.geomesa.index.conf.QueryHints.RichHints
-
     val request = GetFeatureRequest.adapt(getFeature.getParameters()(0))
     val hints = new Hints()
     populateFormatOptions(request, hints)
-
-    val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid, hints.isFlipAxisOrder)
-    val dictionaries = hints.getArrowDictionaryFields
-    val version = hints.getArrowFormatVersion.getOrElse(FormatVersion.ArrowFormatVersion.get)
-    val sortField = hints.getArrowSort.map(_._1)
-    val sortReverse = hints.getArrowSort.map(_._2)
-    val batchSize = hints.getArrowBatchSize.getOrElse(ArrowProperties.BatchSize.get.toInt)
-    val flattenStruct = hints.isArrowFlatten
 
     WithClose(new BufferedOutputStream(output)) { bos =>
       var i = -1
       featureCollections.getFeatures.asScala.foreach { fc =>
         i += 1
-        val preSorted = isPreSorted(request, i, sortField, sortReverse)
         val sfc = fc.asInstanceOf[SimpleFeatureCollection]
         WithClose(CloseableIterator(sfc.features())) { iter =>
           val featureType = sfc.getSchema
@@ -90,14 +79,16 @@ class ArrowOutputFormat(geoServer: GeoServer)
             case 0 | 1 => true
             case _ => false
           }
-          if (aggregated) {
+          if (hints.isArrowProcessDeltas) {
+            iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
+          } else if (aggregated) {
             // with distributed processing, encodings have already been computed in the servers
             val arrowByteArray = iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]])
-            if (flattenStruct) {
+            if (hints.isArrowFlatten) {
               arrowByteArray
                 .map(byteArray => SimpleFeatureArrowFileReader.streaming(() => new ByteArrayInputStream(byteArray)))
                 .foreach(reader => WithClose(reader.features()) { features =>
-                  arrowVisitor(bos, features, reader.sft, encoding, version, dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
+                  arrowVisitor(request, hints, i, bos, features, reader.sft)
                 })
             } else {
               arrowByteArray.foreach(bos.write)
@@ -105,7 +96,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
           } else {
             // for non-encoded fs we do the encoding here
             logger.warn(s"Server side arrow aggregation not enabled for feature collection: ${fc.getClass}, SFT type: ${featureType.getTypeName}")
-            arrowVisitor(bos, iter, featureType, encoding, version, dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
+            arrowVisitor(request, hints, i, bos, iter, featureType)
           }
         }
       }
@@ -158,13 +149,20 @@ class ArrowOutputFormat(geoServer: GeoServer)
       }
     }).getOrElse(false)
 
-  private def arrowVisitor(outputStream: OutputStream, features: CloseableIterator[SimpleFeature], sft: SimpleFeatureType,
-                           encoding: SimpleFeatureEncoding, version: String, dictionaries: Seq[String],
-                           sortField: Option[String], sortReverse: Option[Boolean], preSorted: Boolean,
-                           batchSize: Int, flattenStruct: Boolean): Unit = {
+  private def arrowVisitor(request: GetFeatureRequest, hints: Hints, index: Int,
+                           os: OutputStream, features: CloseableIterator[SimpleFeature], sft: SimpleFeatureType): Unit = {
+    val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid, hints.isFlipAxisOrder)
+    val version = hints.getArrowFormatVersion.getOrElse(FormatVersion.ArrowFormatVersion.get)
+    val dictionaries = hints.getArrowDictionaryFields
+    val sortField = hints.getArrowSort.map(_._1)
+    val sortReverse = hints.getArrowSort.map(_._2)
+    val preSorted = isPreSorted(request, index, sortField, sortReverse)
+    val batchSize = hints.getArrowBatchSize.getOrElse(ArrowProperties.BatchSize.get.toInt)
+    val flattenStruct = hints.isArrowFlatten
+
     val visitor = new ArrowVisitor(sft, encoding, version, dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
     features.foreach(visitor.visit)
-    visitor.getResult().results.asScala.foreach(outputStream.write)
+    visitor.getResult().results.asScala.foreach(os.write)
   }
 }
 
