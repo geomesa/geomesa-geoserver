@@ -79,7 +79,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
             case 0 | 1 => true
             case _ => false
           }
-          if (hints.isArrowProcessDeltas) {
+          if (!hints.isArrowProcessDeltas) {
             iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
           } else if (aggregated) {
             // with distributed processing, encodings have already been computed in the servers
