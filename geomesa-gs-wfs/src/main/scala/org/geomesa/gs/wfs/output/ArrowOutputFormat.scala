@@ -15,6 +15,7 @@ import org.geoserver.ows.Response
 import org.geoserver.platform.Operation
 import org.geoserver.wfs.WFSGetFeatureOutputFormat
 import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
+import org.geotools.api.feature.simple.{SimpleFeature, SimpleFeatureType}
 import org.geotools.api.filter.sort.SortOrder
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.factory.Hints
@@ -96,12 +97,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
               arrowByteArray
                 .map(byteArray => SimpleFeatureArrowFileReader.streaming(() => new ByteArrayInputStream(byteArray)))
                 .foreach(reader => WithClose(reader.features()) { features =>
-                  val visitor = new ArrowVisitor(reader.sft, encoding, version,
-                    dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
-
-                  features.foreach(visitor.visit)
-
-                  visitor.getResult().results.asScala.foreach(bos.write)
+                  arrowVisitor(bos, features, reader.sft, encoding, version, dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
                 })
             } else {
               arrowByteArray.foreach(bos.write)
@@ -109,12 +105,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
           } else {
             // for non-encoded fs we do the encoding here
             logger.warn(s"Server side arrow aggregation not enabled for feature collection: ${fc.getClass}, SFT type: ${featureType.getTypeName}")
-            val visitor = new ArrowVisitor(featureType, encoding, version,
-                dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
-
-            iter.foreach(visitor.visit)
-
-            visitor.getResult().results.asScala.foreach(bos.write)
+            arrowVisitor(bos, iter, featureType, encoding, version, dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
           }
         }
       }
@@ -166,6 +157,15 @@ class ArrowOutputFormat(geoServer: GeoServer)
         case _ => false
       }
     }).getOrElse(false)
+
+  private def arrowVisitor(outputStream: OutputStream, features: CloseableIterator[SimpleFeature], sft: SimpleFeatureType,
+                           encoding: SimpleFeatureEncoding, version: String, dictionaries: Seq[String],
+                           sortField: Option[String], sortReverse: Option[Boolean], preSorted: Boolean,
+                           batchSize: Int, flattenStruct: Boolean): Unit = {
+    val visitor = new ArrowVisitor(sft, encoding, version, dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
+    features.foreach(visitor.visit)
+    visitor.getResult().results.asScala.foreach(outputStream.write)
+  }
 }
 
 object ArrowOutputFormat extends LazyLogging {
