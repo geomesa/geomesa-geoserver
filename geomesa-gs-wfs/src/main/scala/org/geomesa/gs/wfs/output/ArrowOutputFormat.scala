@@ -18,17 +18,17 @@ import org.geoserver.wfs.request.{FeatureCollectionResponse, GetFeatureRequest}
 import org.geotools.api.filter.sort.SortOrder
 import org.geotools.data.simple.SimpleFeatureCollection
 import org.geotools.util.factory.Hints
-import org.locationtech.geomesa.arrow.{ArrowEncodedSft, ArrowProperties}
-import org.locationtech.geomesa.arrow.io.FormatVersion
+import org.locationtech.geomesa.arrow.io.{FormatVersion, SimpleFeatureArrowFileReader}
 import org.locationtech.geomesa.arrow.vector.SimpleFeatureVector.SimpleFeatureEncoding
+import org.locationtech.geomesa.arrow.{ArrowEncodedSft, ArrowProperties}
 import org.locationtech.geomesa.index.conf.QueryHints._
 import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVisitor
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose
 
-import java.io.{BufferedOutputStream, OutputStream}
-import scala.collection.JavaConverters._
+import java.io.{BufferedOutputStream, ByteArrayInputStream, OutputStream}
+import scala.jdk.CollectionConverters._
 
 /**
   * Output format for wfs requests that encodes features into arrow vector format.
@@ -65,10 +65,23 @@ class ArrowOutputFormat(geoServer: GeoServer)
 
     import org.locationtech.geomesa.index.conf.QueryHints.RichHints
 
+    val request = GetFeatureRequest.adapt(getFeature.getParameters()(0))
+    val hints = new Hints()
+    populateFormatOptions(request, hints)
+
+    val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid, hints.isFlipAxisOrder)
+    val dictionaries = hints.getArrowDictionaryFields
+    val version = hints.getArrowFormatVersion.getOrElse(FormatVersion.ArrowFormatVersion.get)
+    val sortField = hints.getArrowSort.map(_._1)
+    val sortReverse = hints.getArrowSort.map(_._2)
+    val batchSize = hints.getArrowBatchSize.getOrElse(ArrowProperties.BatchSize.get.toInt)
+    val flattenStruct = hints.isArrowFlatten
+
     WithClose(new BufferedOutputStream(output)) { bos =>
       var i = -1
       featureCollections.getFeatures.asScala.foreach { fc =>
         i += 1
+        val preSorted = isPreSorted(request, i, sortField, sortReverse)
         val sfc = fc.asInstanceOf[SimpleFeatureCollection]
         WithClose(CloseableIterator(sfc.features())) { iter =>
           val featureType = sfc.getSchema
@@ -78,34 +91,26 @@ class ArrowOutputFormat(geoServer: GeoServer)
           }
           if (aggregated) {
             // with distributed processing, encodings have already been computed in the servers
-            iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
+            val arrowByteArray = iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]])
+            if (flattenStruct) {
+              arrowByteArray
+                .map(byteArray => SimpleFeatureArrowFileReader.streaming(() => new ByteArrayInputStream(byteArray)))
+                .foreach(reader => WithClose(reader.features()) { features =>
+                  val visitor = new ArrowVisitor(reader.sft, encoding, version,
+                    dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
+
+                  features.foreach(visitor.visit)
+
+                  visitor.getResult().results.asScala.foreach(bos.write)
+                })
+            } else {
+              arrowByteArray.foreach(bos.write)
+            }
           } else {
             // for non-encoded fs we do the encoding here
-            logger.warn(s"Server side arrow aggregation is not enabled for feature collection '${fc.getClass}'")
-            val request = GetFeatureRequest.adapt(getFeature.getParameters()(0))
-            val hints = new Hints()
-            populateFormatOptions(request, hints)
-
-            val encoding = SimpleFeatureEncoding.min(hints.isArrowIncludeFid, hints.isArrowProxyFid, hints.isFlipAxisOrder)
-            val dictionaries = hints.getArrowDictionaryFields
-            val version = hints.getArrowFormatVersion.getOrElse(FormatVersion.ArrowFormatVersion.get)
-            val sortField = hints.getArrowSort.map(_._1)
-            val sortReverse = hints.getArrowSort.map(_._2)
-            val batchSize = hints.getArrowBatchSize.getOrElse(ArrowProperties.BatchSize.get.toInt)
-            val flattenStruct = hints.isArrowFlatten
-
-            val preSorted = for (field <- sortField; reverse <- sortReverse.orElse(Some(false))) yield {
-              request.getQueries.get(i).getSortBy match {
-                case list if list.size == 1 =>
-                  val sort = list.get(0)
-                  Option(sort.getPropertyName).exists(_.getPropertyName == field) &&
-                      (sort.getSortOrder == SortOrder.DESCENDING) == reverse
-                case _ => false
-              }
-            }
-
+            logger.warn(s"Server side arrow aggregation not enabled for feature collection: ${fc.getClass}, SFT type: ${featureType.getTypeName}")
             val visitor = new ArrowVisitor(featureType, encoding, version,
-                dictionaries, sortField, sortReverse, preSorted.getOrElse(false), batchSize, flattenStruct)
+                dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
 
             iter.foreach(visitor.visit)
 
@@ -150,6 +155,17 @@ class ArrowOutputFormat(geoServer: GeoServer)
       hints.put(FLIP_AXIS_ORDER, java.lang.Boolean.valueOf(option.toString))
     }
   }
+
+  private def isPreSorted(request: GetFeatureRequest, index: Int, sortField: Option[String], sortReverse: Option[Boolean]): Boolean =
+    (for (field <- sortField; reverse <- sortReverse.orElse(Some(false))) yield {
+      request.getQueries.get(index).getSortBy match {
+        case list if list.size == 1 =>
+          val sort = list.get(0)
+          Option(sort.getPropertyName).exists(_.getPropertyName == field) &&
+            (sort.getSortOrder == SortOrder.DESCENDING) == reverse
+        case _ => false
+      }
+    }).getOrElse(false)
 }
 
 object ArrowOutputFormat extends LazyLogging {
