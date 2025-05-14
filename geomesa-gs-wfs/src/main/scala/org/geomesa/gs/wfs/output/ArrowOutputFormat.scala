@@ -28,7 +28,8 @@ import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose
 
-import java.io.{BufferedOutputStream, ByteArrayInputStream, OutputStream}
+import java.io.{BufferedOutputStream, ByteArrayInputStream, OutputStream, SequenceInputStream}
+import java.util
 import scala.collection.JavaConverters._
 
 /**
@@ -79,24 +80,25 @@ class ArrowOutputFormat(geoServer: GeoServer)
             case 0 | 1 => true
             case _ => false
           }
-          if (!hints.isArrowProcessDeltas) {
-            iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
-          } else if (aggregated) {
-            // with distributed processing, encodings have already been computed in the servers
-            val arrowByteArray = iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]])
-            if (hints.isArrowFlatten) {
-              arrowByteArray
-                .map(byteArray => SimpleFeatureArrowFileReader.streaming(() => new ByteArrayInputStream(byteArray)))
-                .foreach(reader => WithClose(reader.features()) { features =>
+
+          hints match {
+            case _ if !aggregated =>
+              // for non-encoded fs we do the encoding here
+              logger.warn(s"Server side arrow aggregation not enabled for feature collection: ${fc.getClass}, SFT type: ${featureType.getTypeName}")
+              arrowVisitor(request, hints, i, bos, iter, featureType)
+            case _ if !hints.isArrowFlatten => // && aggregated
+              // with distributed processing, encodings have already been computed in the servers
+              iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
+            case _ if !hints.isArrowProcessDeltas => // && aggregated && arrowFlatten
+              // not able to read the byte arrays with a SimpleFeatureArrowFileReader because they're a custom format
+              // that includes threading keys and dictionary deltas
+              iter.map(_.getAttribute(0).asInstanceOf[Array[Byte]]).foreach(bos.write)
+            case _ => // aggregated && arrowFlatten && processDeltas
+              WithClose(SimpleFeatureArrowFileReader.streaming(() => featureSequenceInputStream(iter))) { reader =>
+                WithClose(reader.features()) { features =>
                   arrowVisitor(request, hints, i, bos, features, reader.sft)
-                })
-            } else {
-              arrowByteArray.foreach(bos.write)
-            }
-          } else {
-            // for non-encoded fs we do the encoding here
-            logger.warn(s"Server side arrow aggregation not enabled for feature collection: ${fc.getClass}, SFT type: ${featureType.getTypeName}")
-            arrowVisitor(request, hints, i, bos, iter, featureType)
+                }
+              }
           }
         }
       }
@@ -163,6 +165,24 @@ class ArrowOutputFormat(geoServer: GeoServer)
     val visitor = new ArrowVisitor(sft, encoding, version, dictionaries, sortField, sortReverse, preSorted, batchSize, flattenStruct)
     features.foreach(visitor.visit)
     visitor.getResult().results.asScala.foreach(os.write)
+  }
+
+  private def featureSequenceInputStream(iter: CloseableIterator[SimpleFeature]): SequenceInputStream = {
+    val streamEnumeration: util.Enumeration[ByteArrayInputStream] = new util.Enumeration[ByteArrayInputStream] {
+      private val iterator = iter.map { feature =>
+        val bytes = feature.getAttribute(0).asInstanceOf[Array[Byte]]
+        new ByteArrayInputStream(bytes)
+      }
+      override def hasMoreElements: Boolean = iterator.hasNext
+      override def nextElement(): ByteArrayInputStream = iterator.next()
+    }
+    // SequenceInputStream concatenating Feature byte arrays
+    new SequenceInputStream(streamEnumeration) {
+      override def close(): Unit = {
+        super.close()
+        iter.close() // close the original iterator
+      }
+    }
   }
 }
 
