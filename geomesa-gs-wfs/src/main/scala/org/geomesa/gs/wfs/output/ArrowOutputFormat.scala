@@ -80,7 +80,6 @@ class ArrowOutputFormat(geoServer: GeoServer)
             case 0 | 1 => true
             case _ => false
           }
-
           hints match {
             case _ if !aggregated =>
               // for non-encoded fs we do the encoding here
@@ -168,7 +167,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
   }
 
   private def featureSequenceInputStream(iter: CloseableIterator[SimpleFeature]): SequenceInputStream = {
-    val streamEnumeration: util.Enumeration[ByteArrayInputStream] = new util.Enumeration[ByteArrayInputStream] {
+    val streamEnumeration = new util.Enumeration[ByteArrayInputStream] {
       private val iterator = iter.map { feature =>
         val bytes = feature.getAttribute(0).asInstanceOf[Array[Byte]]
         new ByteArrayInputStream(bytes)
@@ -176,7 +175,6 @@ class ArrowOutputFormat(geoServer: GeoServer)
       override def hasMoreElements: Boolean = iterator.hasNext
       override def nextElement(): ByteArrayInputStream = iterator.next()
     }
-    // SequenceInputStream concatenating Feature byte arrays
     new SequenceInputStream(streamEnumeration) {
       override def close(): Unit = {
         super.close()
