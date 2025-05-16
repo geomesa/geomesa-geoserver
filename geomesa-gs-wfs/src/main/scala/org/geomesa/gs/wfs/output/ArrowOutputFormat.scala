@@ -29,7 +29,6 @@ import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose
 
 import java.io.{BufferedOutputStream, ByteArrayInputStream, OutputStream, SequenceInputStream}
-import java.util
 import scala.collection.JavaConverters._
 
 /**
@@ -168,11 +167,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
     feature.getAttribute(0).asInstanceOf[Array[Byte]]
 
   private def featureSequenceInputStream(iter: CloseableIterator[SimpleFeature]): SequenceInputStream = {
-    val streamEnumeration = new util.Enumeration[ByteArrayInputStream] {
-      private val iterator = iter.map { feature => new ByteArrayInputStream(toByteArray(feature)) }
-      override def hasMoreElements: Boolean = iterator.hasNext
-      override def nextElement(): ByteArrayInputStream = iterator.next()
-    }
+    val streamEnumeration = iter.map(feature => new ByteArrayInputStream(toByteArray(feature))).asJavaEnumeration
     new SequenceInputStream(streamEnumeration)
   }
 }
