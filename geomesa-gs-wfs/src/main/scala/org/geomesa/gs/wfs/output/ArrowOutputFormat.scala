@@ -167,7 +167,7 @@ class ArrowOutputFormat(geoServer: GeoServer)
     feature.getAttribute(0).asInstanceOf[Array[Byte]]
 
   private def featureSequenceInputStream(iter: CloseableIterator[SimpleFeature]): SequenceInputStream = {
-    val streamEnumeration = iter.map(feature => new ByteArrayInputStream(toByteArray(feature))).asJavaEnumeration
+    val streamEnumeration = iter.map(toByteArray).map(new ByteArrayInputStream(_)).asJavaEnumeration
     new SequenceInputStream(streamEnumeration)
   }
 }
