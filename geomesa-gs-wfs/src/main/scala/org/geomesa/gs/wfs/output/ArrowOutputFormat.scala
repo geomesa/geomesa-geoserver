@@ -90,7 +90,9 @@ class ArrowOutputFormat(geoServer: GeoServer)
               throw new NotImplementedError(s"${getClass.getTypeName}: incompatible request parameters: 'flattenStruct' and 'processDeltas'")
             }
             WithClose(SimpleFeatureArrowFileReader.caching(featureSequenceInputStream(iter))) { reader =>
-              arrowVisitor(request, hints, i, bos, reader.features(), reader.sft)
+              WithClose(reader.features()) { features =>
+                arrowVisitor(request, hints, i, bos, features, reader.sft)
+              }
             }
           } else {
             // with distributed processing, encodings have already been computed in the servers
