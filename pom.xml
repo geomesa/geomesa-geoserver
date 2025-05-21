@@ -69,8 +69,8 @@
         <jdk.version>11</jdk.version>
 
         <!-- bundled with geoserver -->
-        <gt.version>33.0</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
-        <geoserver.version>2.27.0</geoserver.version>
+        <gt.version>33.1</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
+        <geoserver.version>2.27.1</geoserver.version>
         <jts.version>1.20.0</jts.version> <!-- needs to track with gt/gs version -->
         <spatial4j.version>0.8</spatial4j.version> <!-- needs to track with jts version -->
 
