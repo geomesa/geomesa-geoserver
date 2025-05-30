@@ -175,7 +175,7 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
     fi
 
     # geomesa wfs plugin - requires a data store plugin to work
-    wfs="$(find "$dir/../geomesa-gs-wfs/target" -name "geomesa-gs-wfs*.jar" -not -name "*-sources.jar" -not -name "*-tests.jar" | sort -r | head -n1)"
+    wfs="$(find "$dir/../geomesa-gs-wfs/target" -name "geomesa-gs-wfs*.jar" -not -name "*-sources.jar" -not -name "*-tests.jar" -not -name "*-javadoc.jar" | sort -r | head -n1)"
     if [[ -n "$wfs" ]]; then
       echo "Copying $(basename "$wfs")"
       cp "$wfs" "$gs_war/WEB-INF/lib/"
@@ -186,7 +186,7 @@ if [[ -n "$reset$geomesa_plugin" ]]; then
 
     # geomesa kafka readiness plugin - requires the kafka store plugin to work
     if [[ "$geomesa_plugin" == "kafka" ]]; then
-      readiness="$(find "$dir/../geomesa-gs-kafka-status-endpoint/target" -name "geomesa-gs-kafka-status-endpoint*.jar" -not -name "*-sources.jar" -not -name "*-tests.jar" | sort -r | head -n1)"
+      readiness="$(find "$dir/../geomesa-gs-kafka-status-endpoint/target" -name "geomesa-gs-kafka-status-endpoint*.jar" -not -name "*-sources.jar" -not -name "*-tests.jar" -not -name "*-javadoc.jar" | sort -r | head -n1)"
       if [[ -n "$readiness" ]]; then
         echo "Copying $(basename "$readiness")"
         cp "$readiness" "$gs_war/WEB-INF/lib/"
