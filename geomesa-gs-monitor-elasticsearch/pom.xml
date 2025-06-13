@@ -12,7 +12,7 @@
     <name>GeoMesa Elasticsearch Geoserver Monitor Extension</name>
 
     <properties>
-        <elasticsearch.version>7.17.0</elasticsearch.version>
+        <elasticsearch.version>8.17.6</elasticsearch.version>
     </properties>
 
     <dependencies>
