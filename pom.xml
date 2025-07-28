@@ -92,21 +92,22 @@
         <copyright.year>2025</copyright.year>
 
         <!-- maven build properties -->
-        <maven.compiler.plugin.version>3.12.1</maven.compiler.plugin.version>
-        <maven.jar.plugin.version>3.3.0</maven.jar.plugin.version>
+        <build.helper.maven.plugin.version>3.5.0</build.helper.maven.plugin.version>
+        <central.publishing.maven.plugin.version>0.8.0</central.publishing.maven.plugin.version>
+        <license.maven.plugin.version>4.3</license.maven.plugin.version>
         <maven.assembly.plugin.version>3.6.0</maven.assembly.plugin.version>
-        <!-- note: we use an older version that still supports using zinc compile server -->
-        <scala.maven.plugin.version>3.4.4</scala.maven.plugin.version>
-        <maven.surefire.plugin.version>3.2.3</maven.surefire.plugin.version>
-        <maven.failsafe.plugin.version>3.2.3</maven.failsafe.plugin.version>
+        <maven.compiler.plugin.version>3.12.1</maven.compiler.plugin.version>
         <maven.deploy.plugin.version>3.1.1</maven.deploy.plugin.version>
-        <maven.source.plugin.version>3.3.0</maven.source.plugin.version>
+        <maven.enforcer.plugin.version>3.4.1</maven.enforcer.plugin.version>
+        <maven.failsafe.plugin.version>3.2.3</maven.failsafe.plugin.version>
+        <maven.gpg.plugin.version>3.1.0</maven.gpg.plugin.version>
+        <maven.jar.plugin.version>3.3.0</maven.jar.plugin.version>
         <maven.javadoc.plugin.version>3.6.3</maven.javadoc.plugin.version>
         <maven.release.plugin.version>3.0.1</maven.release.plugin.version>
-        <license.maven.plugin.version>4.3</license.maven.plugin.version>
-        <maven.enforcer.plugin.version>3.4.1</maven.enforcer.plugin.version>
-        <build.helper.maven.plugin.version>3.5.0</build.helper.maven.plugin.version>
-        <maven.gpg.plugin.version>3.1.0</maven.gpg.plugin.version>
+        <maven.source.plugin.version>3.3.0</maven.source.plugin.version>
+        <maven.surefire.plugin.version>3.2.3</maven.surefire.plugin.version>
+        <!-- note: we use an older version that still supports using zinc compile server -->
+        <scala.maven.plugin.version>3.4.4</scala.maven.plugin.version>
     </properties>
 
     <scm>
@@ -670,6 +671,36 @@
                             </execution>
                         </executions>
                     </plugin>
+                    <plugin>
+                        <groupId>org.sonatype.central</groupId>
+                        <artifactId>central-publishing-maven-plugin</artifactId>
+                        <version>${central.publishing.maven.plugin.version}</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <!-- used to lookup credentials in ~/.m2/settings.xml -->
+                            <publishingServerId>sonatype</publishingServerId>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-enforcer-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>enforce-java-version</id>
+                                <goals>
+                                    <goal>enforce</goal>
+                                </goals>
+                                <configuration>
+                                    <rules>
+                                        <!-- ensure that we're using the expected jdk when we release to central -->
+                                        <requireJavaVersion>
+                                            <version>[${jdk.version},${jdk.version}.1)</version>
+                                        </requireJavaVersion>
+                                    </rules>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
         </profile>
@@ -726,16 +757,5 @@
             <url>https://packages.confluent.io/maven/</url>
         </repository>
     </repositories>
-
-    <distributionManagement>
-        <snapshotRepository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
-        </snapshotRepository>
-        <repository>
-            <id>ossrh</id>
-            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
-        </repository>
-    </distributionManagement>
 
 </project>
