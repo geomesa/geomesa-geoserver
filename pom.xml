@@ -60,7 +60,7 @@
     </modules>
 
     <properties>
-        <geomesa.version>5.3.0</geomesa.version>
+        <geomesa.version>5.4.0-SNAPSHOT</geomesa.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -69,8 +69,8 @@
         <jdk.version>11</jdk.version>
 
         <!-- bundled with geoserver -->
-        <gt.version>33.1</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
-        <geoserver.version>2.27.1</geoserver.version>
+        <gt.version>33.2</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
+        <geoserver.version>2.27.2</geoserver.version>
         <jts.version>1.20.0</jts.version> <!-- needs to track with gt/gs version -->
         <spatial4j.version>0.8</spatial4j.version> <!-- needs to track with jts version -->
 
