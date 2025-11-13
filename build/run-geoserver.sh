@@ -7,7 +7,7 @@ set -o errexit -o pipefail -o nounset -o noclobber
 
 # pointer to geomesa repo - assumes that the two repos are checked out side-by-side
 geomesa_dir="$dir/../../geomesa"
-jdk=11
+jdk=17
 debug=""
 geomesa_plugin=""
 reset=""
@@ -260,7 +260,6 @@ if ! docker network ls | grep -q geomesa; then
 fi
 
 echo "Starting geoserver"
-# add-opens required by arrow for jdk 11+
 # use ! to prevent exit on error as we want to always run the permissions cleanup step
 # shellcheck disable=SC2251
 ! docker run --rm \
