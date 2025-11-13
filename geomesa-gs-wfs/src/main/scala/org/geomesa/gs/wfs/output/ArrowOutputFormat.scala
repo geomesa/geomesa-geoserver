@@ -23,7 +23,7 @@ import org.locationtech.geomesa.arrow.io.{FormatVersion, SimpleFeatureArrowFileR
 import org.locationtech.geomesa.arrow.vector.SimpleFeatureVector.SimpleFeatureEncoding
 import org.locationtech.geomesa.arrow.{ArrowEncodedSft, ArrowProperties}
 import org.locationtech.geomesa.index.conf.QueryHints._
-import org.locationtech.geomesa.process.transform.ArrowConversionProcess.ArrowVisitor
+import org.locationtech.geomesa.index.process.ArrowVisitor
 import org.locationtech.geomesa.utils.collection.CloseableIterator
 import org.locationtech.geomesa.utils.geotools.SimpleFeatureTypes
 import org.locationtech.geomesa.utils.io.WithClose

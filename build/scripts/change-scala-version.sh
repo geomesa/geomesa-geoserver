@@ -20,7 +20,7 @@
 set -e
 
 VALID_VERSIONS=("2.12" "2.13")
-FULL_VERSIONS=("2.12.19" "2.13.12")
+FULL_VERSIONS=("2.12.20" "2.13.16")
 
 usage() {
   echo "Usage: $(basename $0) [-h|--help] <version>
@@ -73,5 +73,3 @@ sed_i '1,/<scala\.version>[0-9]\.[0-9][0-9]*\.[0-9][0-9]*</s/<scala\.version>[0-
 
 # Update enforcer rules
 sed_i 's|<exclude>\*:\*_'$TO_VERSION'</exclude>|<exclude>*:*_'$FROM_VERSION'</exclude>|' "$BASEDIR/pom.xml"
-sed_i 's|<regex>'$FROM_VERSION'\.\*</regex>|<regex>'$TO_VERSION'.*</regex>|' "$BASEDIR/pom.xml"
-sed_i 's|<regex>'$FROM_VERSION'</regex>|<regex>'$TO_VERSION'</regex>|' "$BASEDIR/pom.xml"

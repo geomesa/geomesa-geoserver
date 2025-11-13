@@ -4,7 +4,7 @@
 
     <groupId>org.geomesa.geoserver</groupId>
     <artifactId>geomesa-geoserver_2.12</artifactId>
-    <version>5.5.0-SNAPSHOT</version>
+    <version>6.0.0-SNAPSHOT</version>
     <name>GeoMesa GeoServer Integration</name>
     <description>Software to help integrate GeoMesa and GeoServer</description>
     <url>https://github.com/geomesa/geomesa-geoserver</url>
@@ -60,17 +60,17 @@
     </modules>
 
     <properties>
-        <geomesa.version>5.4.0</geomesa.version>
+        <geomesa.version>6.0.0-SNAPSHOT</geomesa.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <scala.version>2.12.19</scala.version>
+        <scala.version>2.12.20</scala.version>
         <scala.binary.version>2.12</scala.binary.version>
-        <jdk.version>11</jdk.version>
+        <jdk.version>17</jdk.version>
 
         <!-- bundled with geoserver -->
-        <gt.version>33.2</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
-        <geoserver.version>2.27.2</geoserver.version>
+        <gt.version>34.0</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
+        <geoserver.version>2.28.0</geoserver.version>
         <jts.version>1.20.0</jts.version> <!-- needs to track with gt/gs version -->
         <spatial4j.version>0.8</spatial4j.version> <!-- needs to track with jts version -->
 
@@ -106,8 +106,7 @@
         <maven.release.plugin.version>3.1.1</maven.release.plugin.version>
         <maven.source.plugin.version>3.3.1</maven.source.plugin.version>
         <maven.surefire.plugin.version>3.5.4</maven.surefire.plugin.version>
-        <!-- note: we use an older version that still supports using zinc compile server -->
-        <scala.maven.plugin.version>3.4.4</scala.maven.plugin.version>
+        <scala.maven.plugin.version>4.9.6</scala.maven.plugin.version>
     </properties>
 
     <scm>
@@ -375,9 +374,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven.compiler.plugin.version}</version>
                     <configuration>
-                        <!-- Turn off 'useIncrementalCompilation' to keep this plugin
-                             from recompiling Java files that the scala-maven-plugin
-                             already compiled. -->
+                        <!-- keep this plugin from re-compiling Java files that the scala-maven-plugin already compiled -->
                         <useIncrementalCompilation>false</useIncrementalCompilation>
                         <source>${jdk.version}</source>
                         <target>${jdk.version}</target>
@@ -394,9 +391,6 @@
                             <version>${maven.surefire.plugin.version}</version>
                         </dependency>
                     </dependencies>
-                    <configuration>
-                        <argLine>--illegal-access=warn</argLine>
-                    </configuration>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -424,12 +418,22 @@
                     <artifactId>license-maven-plugin</artifactId>
                     <version>${license.maven.plugin.version}</version>
                     <configuration>
-                        <header>build/copyright/gai3.txt</header>
-                        <validHeaders />
                         <properties>
                             <year>${copyright.year}</year>
                             <owner>General Atomics Integrated Intelligence, Inc.</owner>
                         </properties>
+                        <licenseSets>
+                            <licenseSet>
+                                <header>build/copyright/gai3.txt</header>
+                                <validHeaders/>
+                                <includes>
+                                    <include>src/main/java/**</include>
+                                    <include>src/main/scala*/**</include>
+                                    <include>src/test/java/**</include>
+                                    <include>src/test/scala/**</include>
+                                </includes>
+                            </licenseSet>
+                        </licenseSets>
                         <headerDefinitions>
                             <definitions>build/copyright/geomesa-header.xml</definitions>
                         </headerDefinitions>
@@ -437,12 +441,6 @@
                             <java>GEOMESA_JAVA</java>
                             <scala>GEOMESA_JAVA</scala>
                         </mapping>
-                        <includes>
-                            <include>src/main/java/**</include>
-                            <include>src/main/scala/**</include>
-                            <include>src/test/java/**</include>
-                            <include>src/test/scala/**</include>
-                        </includes>
                     </configuration>
                 </plugin>
                 <plugin>
@@ -555,18 +553,6 @@
                                         <exclude>org.slf4j:slf4j-log4j12</exclude>
                                     </excludes>
                                 </bannedDependencies>
-                                <requireProperty>
-                                    <message>property scala.version must be set</message>
-                                    <property>scala.version</property>
-                                    <regexMessage>property scala.version doesn't match expected compiler version</regexMessage>
-                                    <regex>2.12.*</regex>
-                                </requireProperty>
-                                <requireProperty>
-                                    <message>property scala.binary.version must be set</message>
-                                    <property>scala.binary.version</property>
-                                    <regexMessage>property scala.binary.version doesn't match compiler version</regexMessage>
-                                    <regex>2.12</regex>
-                                </requireProperty>
                             </rules>
                         </configuration>
                     </execution>
@@ -613,23 +599,6 @@
     </build>
 
     <profiles>
-        <profile>
-            <id>zinc</id>
-            <build>
-                <pluginManagement>
-                    <plugins>
-                        <plugin>
-                            <groupId>net.alchim31.maven</groupId>
-                            <artifactId>scala-maven-plugin</artifactId>
-                            <configuration>
-                                <recompileMode>incremental</recompileMode>
-                                <useZincServer>true</useZincServer>
-                            </configuration>
-                        </plugin>
-                    </plugins>
-                </pluginManagement>
-            </build>
-        </profile>
         <profile>
             <id>central</id>
             <build>
