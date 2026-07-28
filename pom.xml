@@ -64,24 +64,24 @@
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <scala.version>2.12.20</scala.version>
+        <scala.version>2.12.21</scala.version>
         <scala.binary.version>2.12</scala.binary.version>
         <jdk.version>17</jdk.version>
 
         <!-- bundled with geoserver -->
-        <gt.version>34.2</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
-        <geoserver.version>2.28.2</geoserver.version>
+        <gt.version>35.0</gt.version> <!-- make sure this tracks with gs, jts, spatial4j and ejml -->
+        <geoserver.version>3.0.0</geoserver.version>
         <jts.version>1.20.0</jts.version> <!-- needs to track with gt/gs version -->
         <spatial4j.version>0.8</spatial4j.version> <!-- needs to track with jts version -->
 
-        <guava.version>33.4.0-jre</guava.version>
-        <spring.version>5.3.39</spring.version>
-        <spring.security.version>5.8.16</spring.security.version>
+        <guava.version>33.5.0-jre</guava.version>
+        <spring.version>7.0.8</spring.version>
+        <spring.security.version>7.1.0</spring.security.version>
 
         <!-- bundled with the main geomesa plugins -->
-        <typesafe.config.version>1.4.3</typesafe.config.version>
+        <typesafe.config.version>1.4.9</typesafe.config.version>
         <scalalogging.version>3.9.5</scalalogging.version>
-        <slf4j.version>1.7.36</slf4j.version>
+        <slf4j.version>2.0.18</slf4j.version>
 
         <specs2.version>4.20.4</specs2.version>
         <junit.version>4.13.2</junit.version>
@@ -205,7 +205,7 @@
             </dependency>
             <dependency>
                 <groupId>org.geoserver</groupId>
-                <artifactId>gs-wfs</artifactId>
+                <artifactId>gs-wfs-core</artifactId>
                 <version>${geoserver.version}</version>
                 <scope>provided</scope>
                 <exclusions>
